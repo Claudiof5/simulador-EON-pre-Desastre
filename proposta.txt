@@ -1,0 +1,34 @@
+
+Dado uma rede representada por um grafo e informações sobre um desastre futuro, encontre o melhor 
+caminho(ou um bom o suficiente) para n databases sejam migradas de maneira que todas consigam migrar
+sem se bloquearem, lembrando que o roteamento deve ser feito de maneira individual para cada cliente 
+a ser migrado
+
+cada cliente ver sua propia layer
+provedor tem visão geral
+
+-Entender o codigo do simulador
+-alterar ele para que seja possivel integralo com o modeloProblema.ipynb
+-e alterar o codigo para que o algoritmo seja facilmente inserido
+-construir o algoritmo base que escolha o caminho por backtracking
+-criar algoritmo/euristica e comparar com o algoritmo base
+
+
+especificações, o simulador deve:
+    -gerar um numero X de ISP (feito)
+    -receber a topologia depois de um tempo razoavel de simulação, 10 minutos.
+    -receber informações sobre um desastre com antecedencia de Y minutos
+    -cada ISP se comunica com o sistema(momentos diferentes) pedindo para o trafico
+     evitar locais afetados para o desastre e inicia migração de databases para garantir
+     acessibilidade dos dados
+    -aplicar algoritmo que escolha caminho com datapaths de menor impacto na rede levando em consideração
+    a configuração futura da rede e a possibilidade de outros ISP pedirem a migração dos dados
+
+duvidas
+    -Uma vez que a ISP requisita evitar usar datapaths que serão afetados pelo desastre
+     essa politica tem que ser aplicada de imediato ou ainda é possivel passar o trafego
+     gerado por esses datapaths até onde o sistema julgar que é seguro?
+    
+    -O roteamento de pacotes vindo das ISP medias é feita por elas mesmas até sua borda com uma visão local ou pela ISP maior com visão global?
+    caso seja de maneira local como modelar o processo de passagem
+    -como modelar a migração dos bancos de dados dentro de cada ISP? quantidade e tamanho dos bancos dentro de cada ISP
