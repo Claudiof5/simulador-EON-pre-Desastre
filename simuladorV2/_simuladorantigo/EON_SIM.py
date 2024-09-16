@@ -10,7 +10,7 @@ import math
 from random import *
 from VARIAVEIS import *
 from utils import k_shortest_paths, Modulation, FatorModulation
-from contador import Contador
+from Contador import Contador
 
 desastre_padrao = {"duration":DURACAO_DESASTRE, "nodes":NODE_POINTS, "links":LINK_POINTS, "start":TEMPO_INICIO_DESASTRE}
 
@@ -23,6 +23,7 @@ class Simulador:
 		self.env :simpy.Environment = env
 		self.topology :nx.Graph = topology
 
+		#mover para inicialização da classe Topologia
 		for u, v in list(self.topology.edges):				 #seta os slots em cada LP(as arestas da rede) como disponiveis 
 			self.topology[u][v]['capacity'] = [0] * SLOTS
 
@@ -57,7 +58,6 @@ class Simulador:
 		self.rr_nao_restauradas_pr = []
 
 		self.action = env.process(self.Run(rate))
-		self.env.process(self.InterruptSimulation(800))
 		self.timeSimFim = None
 	
 	def timer(self):
@@ -74,11 +74,13 @@ class Simulador:
 	def Run(self, rate):
 
 		try:
+			#adicionar em classe Topologia
 			#pre-processamento dos caminhos mais curtos
 			for i in list(self.topology.nodes()):
 				for j in list(self.topology.nodes()):
 					if i!= j:
 						self.k_paths[i,j] = k_shortest_paths(self.topology, i, j, N_PATH, weight='weight')
+			
 			
 			#self.env.process(self.GerarFalhas())
 			self.env.process(self.timer())
@@ -86,10 +88,9 @@ class Simulador:
 			for count in range(1, NUM_OF_REQUESTS + 1):
 
 				yield self.env.timeout(self.random.expovariate(rate))
-
 				#escolhe tempo de espera aleatorio, destino e origem, tipo de pacote, e bandwidth do pacote
 				class_type = np.random.choice(CLASS_TYPE, p=CLASS_WEIGHT)
-				src, dst = self.random.sample(self.nodes, 2)
+				src, dst = np.random.sample(self.nodes, 2)
 				src_ISP = self.random.choice( self.nodes_and_edges_to_ISP_dict["nodes"][src])
 				dst_ISP = self.random.choice( self.nodes_and_edges_to_ISP_dict["nodes"][dst])
 				
@@ -116,7 +117,7 @@ class Simulador:
 					capacity = 0
 					Datapaths = []
 					found = False
-					#agrega em uma lista Datapaths informações sobre todos os caminhos
+					#agrega em uma lista Datapaths de informações sobre todos os caminhos
 					for i in range(N_PATH):
 						distance = int(self.Distance(paths[i]))  # Calcule a distância
 						
@@ -308,7 +309,7 @@ class Simulador:
 			self.topology[path[i]][path[i+1]]['capacity'][fim] = 'GB'
 
 	# Verifica se o caminho escolhido possui espectro disponível para a demanda requisitada
-	def PathIsAble(self, nslots, path):
+	'''def PathIsAble(self, nslots, path):
 		cont = 0
 		t = 0
 		for slot in range (0,len(self.topology[path[0]][path[1]]['capacity'])):
@@ -335,7 +336,7 @@ class Simulador:
 				if slot == len(self.topology[path[0]][path[1]]['capacity'])-1:
 					return [False,0,0]	
 
-
+'''
 		# Função para gerar falhas na rede
 	
 
@@ -357,8 +358,6 @@ class Simulador:
 			yield self.env.timeout(1)
 
 
-	def StartISPMigration(self, ISPIndex):
-		pass
 
 	def GerarFalhas(self):
 		while True:

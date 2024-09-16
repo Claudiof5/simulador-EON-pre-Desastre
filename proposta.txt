@@ -28,7 +28,17 @@ duvidas
     -Uma vez que a ISP requisita evitar usar datapaths que serão afetados pelo desastre
      essa politica tem que ser aplicada de imediato ou ainda é possivel passar o trafego
      gerado por esses datapaths até onde o sistema julgar que é seguro?
-    
+    Assim que requisitar
+
     -O roteamento de pacotes vindo das ISP medias é feita por elas mesmas até sua borda com uma visão local ou pela ISP maior com visão global?
     caso seja de maneira local como modelar o processo de passagem
+    inicialmente local, migrar dentro da propia ISP
+    
     -como modelar a migração dos bancos de dados dentro de cada ISP? quantidade e tamanho dos bancos dentro de cada ISP
+    
+    -É interessante que os ISP medios cubram toda a rede?
+    Sim
+
+    -não consegui achar o paper
+
+
