@@ -2,8 +2,9 @@ from Requisicao.Requisicao import Requisicao
 from Topologia import Topologia
 from Contador import Contador
 from Roteamento.iRoteamento import iRoteamento
+from Variaveis import *
 import math
-SLOT_SIZE = 12.5
+
 class Roteamento(iRoteamento):
 
 
@@ -12,11 +13,13 @@ class Roteamento(iRoteamento):
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = self.retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
             self.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths)
+            return True
         else:
             requisicao.bloqueia_requisicao( topology.enviromment.now)
             Contador.conta_bloqueio_requisicao_banda(requisicao.bandwidth)
             Contador.conta_bloqueio_requisicao_classe(requisicao.class_type)
             Contador.incrementa_numero_requisicoes_bloqueadas()
+            return False
 
     def rerotear_requisicao(self, requisicao: Requisicao, topology: Topologia):
 

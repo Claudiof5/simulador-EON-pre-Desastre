@@ -79,4 +79,18 @@ class Contador:
         contador = Contador.get_intance()
         contador.numero_requisicoes_reroteadas_bloqueadas += 1
 
-
+    def printa_parametros():
+        contador = Contador.get_intance()
+        print("Numero de requisicoes por classe: ", contador.numero_requisicoes_por_classe)
+        print("Numero de requisicoes bloqueadas por classe: ", contador.numero_requisicoes_bloqueadas_por_classe)
+        print("Numero de requisicoes por banda: ", contador.numero_requisicoes_por_banda)
+        print("Numero de requisicoes bloqueadas por banda: ", contador.numero_requisicoes_bloqueadas_por_banda)
+        print("Numero de requisicoes afetadas por desastre: ", contador.numero_requisicoes_afetadas_desastre)
+        print("Numero de requisicoes reroteadas por classe: ", contador.numero_reroteadas_por_classe)
+        print("Numero de requisicoes reroteadas bloqueadas por classe: ", contador.numero_reroteadas_bloqueadas_por_classe)
+        print("Numero de requisicoes reroteadas por banda: ", contador.numero_reroteadas_por_banda)
+        print("Numero de requisicoes reroteadas bloqueadas por banda: ", contador.numero_reroteadas_bloqueadas_por_banda)
+        print("Numero de requisicoes: ", contador.numero_requisicoes)
+        print("Numero de requisicoes bloqueadas: ", contador.numero_requisicoes_bloqueadas)
+        print("Numero de requisicoes reroteadas: ", contador.numero_requisicoes_reroteadas)
+        print("Numero de requisicoes reroteadas bloqueadas: ", contador.numero_requisicoes_reroteadas_bloqueadas)

@@ -20,7 +20,7 @@ class GeradorDeDesastre:
 
         random_edges = [edges[i] for i in random_index]
         
-        tempos = [ np.random.normal(600, 90) for i in range( len(random_edges)+len(disaster_center))]
+        tempos = [ np.random.normal(1200, 90) for i in range( len(random_edges)+len(disaster_center))]
         min_value = min(tempos)
         tempos_finais = [ x - min_value for x in tempos]
         duration = np.random.normal(600, 90)
