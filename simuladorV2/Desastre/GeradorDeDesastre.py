@@ -1,6 +1,6 @@
 import numpy as np
 import networkx as nx
-from Desastre import Desastre
+from Desastre.Desastre import Desastre
 from ISP.ISP import ISP
 class GeradorDeDesastre:
 

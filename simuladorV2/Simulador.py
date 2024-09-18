@@ -16,7 +16,9 @@ class Simulador:
 
     def __init__(self, env :simpy.Environment, topology: nx.Graph, numero_de_ISPs: int, rate: int, num_of_requests: int ) -> None:
         self.env = env
-        self.lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology, numero_de_ISPs )
+        self.lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology=topology, numero_de_ISPs=numero_de_ISPs )
+    
+
         self.desastre      :Desastre  = GeradorDeDesastre.generate_disaster( topology, self.lista_de_ISPs )
         self.topology      :Topologia = Topologia( topology, self.lista_de_ISPs, NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS )
         self.requisicoes   :list[Requisicao] = []

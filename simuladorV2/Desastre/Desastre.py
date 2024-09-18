@@ -1,9 +1,12 @@
 import simpy
 import networkx as nx
-from Simulador import Simulador
 from ISP.ISP import ISP
 from Requisicao.Requisicao import Requisicao
+from Roteamento.iRoteamento import iRoteamento
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from Simulador import Simulador
 class Desastre:
 
 
@@ -15,17 +18,17 @@ class Desastre:
         self.links_em_falha = [] 
         self.nodes_em_falha = []  
         
-    def iniciar_desastre(self, simulador:Simulador) -> None:
+    def iniciar_desastre(self, simulador:'Simulador') -> None:
         simulador.env.process(self.gerar_falhas(simulador))
         simulador.env.process(self.iniciar_migracao(simulador))
 
-    def iniciar_migracao(self, simulador:Simulador):
+    def iniciar_migracao(self, simulador:'Simulador'):
         lista_ISP:list[ISP] = simulador.lista_de_ISPs
         for isp in lista_ISP:
             isp.define_datacenter(self, simulador.topology.topology)
             isp.iniciar_migracao(simulador)
 
-    def gerar_falhas(self, simulador:Simulador):
+    def gerar_falhas(self, simulador:'Simulador'):
         while True:
             for link_point in self.list_of_dict_link_per_start_time:
                 if link_point not in self.links_em_falha and  simulador.env.now >= link_point["start_time"] + self.start:
@@ -51,7 +54,7 @@ class Desastre:
                 break  
             yield  simulador.env.timeout(1) 
 
-    def FalhaNoLink(self, node1, node2, simulador:Simulador):
+    def FalhaNoLink(self, node1, node2, simulador:'Simulador'):
         topology = simulador.topology
         if topology.topology.has_edge(node1, node2):
             
@@ -67,7 +70,7 @@ class Desastre:
                 topology._desalocate(requisicao.resultados_requisicao["path"], requisicao.resultados_requisicao["spectro"])
                 requisicao.resultados_requisicao = None
                 requisicao.bloqueada = None
-                roteador = simulador.lista_de_ISPs[index_isp].roteamento
+                roteador: iRoteamento = simulador.lista_de_ISPs[index_isp].roteamento
                 roteador.rerotear_requisicao(simulador, requisicao, topology)
 
             
@@ -77,7 +80,7 @@ class Desastre:
             
             print(f"Erro: O link entre os nós {node1} e {node2} não existe na topologia.")
 
-    def FalhaNoNo(self, node, simulador:Simulador):
+    def FalhaNoNo(self, node, simulador:'Simulador'):
         topology = simulador.topology.topology
         
         if node in topology.nodes:
@@ -91,7 +94,7 @@ class Desastre:
             
             print(f"Erro: O nó {node} não existe na topologia.")
 
-    def Quem_falhou_link(self, pontaa, pontab, simulador:Simulador) -> list[Requisicao] :
+    def Quem_falhou_link(self, pontaa, pontab, simulador:'Simulador') -> list[Requisicao] :
         requisicoes_ativas_que_falharam_no_link:list[Requisicao] = []
         for req in simulador.requisicoes:
             if req.bloqueada == False and req.processo_de_desalocacao.is_alive and simulador.topology.caminho_passa_por_link(pontaa, pontab, req.resultados_requisicao["path"]):

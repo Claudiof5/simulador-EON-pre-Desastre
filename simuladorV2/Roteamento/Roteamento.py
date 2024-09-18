@@ -1,14 +1,18 @@
 from Requisicao.Requisicao import Requisicao
-from Topologia import Topologia
+
 from Contador import Contador
 from Roteamento.iRoteamento import iRoteamento
 from Variaveis import *
 import math
 
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from Topologia import Topologia
+    
 class Roteamento(iRoteamento):
 
 
-    def rotear_requisicao(self, requisicao: Requisicao, topology: Topologia):
+    def rotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia'):
 
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = self.retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
@@ -21,7 +25,7 @@ class Roteamento(iRoteamento):
             Contador.incrementa_numero_requisicoes_bloqueadas()
             return False
 
-    def rerotear_requisicao(self, requisicao: Requisicao, topology: Topologia):
+    def rerotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia'):
 
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = self.retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
@@ -32,14 +36,14 @@ class Roteamento(iRoteamento):
             Contador.conta_bloqueio_reroteadas_por_classe(requisicao.class_type)
             Contador.incrementa_numero_requisicoes_reroteadas_bloqueadas()
 
-    def aloca_requisicao(self, requisicao: Requisicao, topology: Topologia, informacoes_datapaths: dict):
+    def aloca_requisicao(self, requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict):
 
         for informacoes_datapath in informacoes_datapaths:
             if informacoes_datapath["maior_janela_contigua_continua"] >= informacoes_datapath["numero_slots_necessarios"]:
                 self.aloca_datapath(requisicao, topology, informacoes_datapath, informacoes_datapath["numero_slots_necessarios"])
                 break
         
-    def aloca_datapath(self, requisicao: Requisicao, topology: Topologia, informacoes_datapath: dict):
+    def aloca_datapath(self, requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict):
         
         #janelas_possiveis = [ janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]]
         primeira_janela_disponivel = next( (janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]), None)
@@ -53,7 +57,7 @@ class Roteamento(iRoteamento):
         requisicao.processo_de_desalocacao = topology.desaloca_janela(caminho, [inicio, fim], requisicao.holding_time)
         requisicao.aceita_requisicao(caminho, len(caminho), [inicio, fim], topology.enviromment.now,requisicao.holding_time, topology.distancia_caminho(caminho))
         
-    def retorna_informacoes_datapaths(self, requisicao: Requisicao, topology: Topologia):
+    def retorna_informacoes_datapaths(self, requisicao: Requisicao, topology: 'Topologia'):
 
         caminhos = topology.topology[requisicao.src][ requisicao.dst]["caminhos"]
     
@@ -82,7 +86,7 @@ class Roteamento(iRoteamento):
             lista_de_informacoes_datapath.append(dados_do_caminho)
         return lista_de_informacoes_datapath, pelo_menos_uma_janela_habil
         
-    def informacoes_sobre_slots(self, caminho, topology: Topologia):
+    def informacoes_sobre_slots(self, caminho, topology: 'Topologia'):
         
         slots_livres = self.retorna_slots_livres(caminho, topology)
         
@@ -92,7 +96,7 @@ class Roteamento(iRoteamento):
 
         return slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins
         
-    def retorna_slots_livres(self, caminho, topology: Topologia) ->list:
+    def retorna_slots_livres(self, caminho, topology: 'Topologia') ->list:
         
         slots_livres = []
         for i in range( topology.numero_de_slots):
@@ -100,7 +104,7 @@ class Roteamento(iRoteamento):
                 slots_livres.append(i)
         return slots_livres
     
-    def checa_concurrency_slot(self, caminho :list, topology: Topologia, indice: int):
+    def checa_concurrency_slot(self, caminho :list, topology: 'Topologia', indice: int):
 
         for i in range(0, (len(caminho)-1)):
             

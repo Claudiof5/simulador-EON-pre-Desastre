@@ -45,7 +45,7 @@ class Contador:
     def conta_bloqueio_requisicao_classe( classe):
 
         contador = Contador.get_intance()
-        contador.numero_requisicoes_bloqueadas_por_classe(classe) += 1
+        contador.numero_requisicoes_bloqueadas_por_classe[classe] += 1
 
     def conta_reroteadas_por_classe(classe):
         contador = Contador.get_intance()
