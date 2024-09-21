@@ -1,4 +1,5 @@
-import random
+from numpy.random import choice
+from random import expovariate
 from Contador import Contador
 from Topologia import Topologia
 from Requisicao.Requisicao import Requisicao
@@ -7,16 +8,16 @@ from Variaveis import *
 class GeradorDeTrafico:
     
 
-    def gerar_requisicao(self, topology: Topologia, id :int, specific_values :dict = None)-> Requisicao:
+    def gerar_requisicao( topology: Topologia, id :int, specific_values :dict = None)-> Requisicao:
         
-        if specific_values != None:
-            class_type = random.choice(CLASS_TYPE, p=CLASS_WEIGHT)
-            src, dst = random.sample(topology.topology.nodes, 2)
-            src_ISP = random.choice( topology.topology.nodes[src]["ISPs"])
-            dst_ISP = random.choice( topology.topology.nodes[dst]["ISPs"])
+        if specific_values == None:
+            class_type = choice(CLASS_TYPE, p=CLASS_WEIGHT)
+            src, dst = choice(topology.topology.nodes, 2, replace=False)
+            src_ISP = choice( topology.topology.nodes[src]["ISPs"])
+            dst_ISP = choice( topology.topology.nodes[dst]["ISPs"])
             
-            bandwidth = random.choice(BANDWIDTH)
-            holding_time = random.expovariate(HOLDING_TIME)
+            bandwidth = choice(BANDWIDTH)
+            holding_time = expovariate(HOLDING_TIME)
         else:
             src = specific_values["src"]
             dst = specific_values["dst"]

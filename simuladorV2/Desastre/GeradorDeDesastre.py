@@ -8,8 +8,7 @@ class GeradorDeDesastre:
     def generate_disaster(topology: nx.Graph, list_of_ISP: list[ISP]):
 
         list_of_ISP = [ISP.nodes for ISP in list_of_ISP]
-        intersection = set( list_of_ISP[0]).intersection( *list_of_ISP[1:])
-
+        intersection = list(set( list_of_ISP[0]).intersection( *list_of_ISP[1:]))
 
         disaster_center = np.random.choice(intersection, 1)
         edges = list(topology.edges(disaster_center))

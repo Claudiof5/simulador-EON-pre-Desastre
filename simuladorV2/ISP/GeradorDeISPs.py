@@ -69,7 +69,6 @@ class GeradorDeISPs:
         
         while True:
             centers = np.random.choice(list(topology.nodes), numero_de_ISPs, replace=False)
-            print(centers)
             ISPS_dict = {}
             for i, source in enumerate(centers):
                 ISP_nodes = [source]
@@ -93,7 +92,7 @@ class GeradorDeISPs:
                 ISPS_dict[i] = ({"nodes": ISP_nodes, "edges": ISP_edges})
 
             intercessoes = GeradorDeISPs.determine_interssection(topology, ISPS_dict)
-            if len(intercessoes[numero_de_ISPs-1]["nodes"]) > 0 and len(intercessoes[0]["nodes"]) == 0 :
+            if len(intercessoes[numero_de_ISPs]["nodes"]) > 0 and len(intercessoes[0]["nodes"]) == 0 :
                 break
         
         lista_de_ISPs = []

@@ -2,6 +2,7 @@ import networkx as nx
 from itertools import islice
 from ISP.ISP import ISP
 import simpy
+
 class Topologia:
 
 
@@ -9,18 +10,20 @@ class Topologia:
         self.topology: nx.Graph = topology
         self.numero_de_slots = numero_de_slots
         self.enviromment :simpy.Environment = enviromment
+        self.caminhos_mais_curtos_entre_links = {}
 
         self.inicia_topologia(list_of_ISP, numero_de_caminhos, numero_de_slots)
 
 
     def inicia_topologia(self, list_of_ISP: list[ISP], numero_de_caminhos: int, numero_de_slots: int):
-        self.inicia_slots( numero_de_slots)
+        self.inicia_status( numero_de_slots)
         self.inicia_lista_de_ISPs_por_link_e_node( list_of_ISP )
         self.inicia_caminhos_mais_curtos(numero_de_caminhos)
 
-    def inicia_slots(self, numero_de_slots: int):
+    def inicia_status(self, numero_de_slots: int):
         for edge in self.topology.edges():
             self.topology[edge[0]][edge[1]]["slots"] = [0] * numero_de_slots
+            self.topology[edge[0]][edge[1]]["failed"] = False
 
     def inicia_lista_de_ISPs_por_link_e_node( self, list_of_ISP: list[ISP]):
 
@@ -38,18 +41,22 @@ class Topologia:
                 self.topology[edge[0]][edge[1]]["ISPs"].append(isp.id)
 
     def inicia_caminhos_mais_curtos(self, numero_de_caminhos: int):
-        for i in list(self.topology.nodes()):
-                for j in list(self.topology.nodes()):
-                    if i!= j:
-                        self.topology[i][j]["caminhos"] = self.k_shortest_paths(self.topology, i, j, numero_de_caminhos, weight='weight')
+        nodes = list(self.topology.nodes())
+        for i in nodes:
+                if i not in self.caminhos_mais_curtos_entre_links:
+                            self.caminhos_mais_curtos_entre_links[i] = {}
+                for j in nodes:
+                    if i != j:
+                        self.caminhos_mais_curtos_entre_links[i][j] = self.k_shortest_paths(self.topology, i, j, numero_de_caminhos, weight='weight')
+
         
-    def k_shortest_paths( G, source, target, k, weight='weight'):
+    def k_shortest_paths(self, G, source, target, k, weight='weight'):
         return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
     
     def _desalocate(self, path, spectro):
         for i in range(0, (len(path)-1)):
                 for slot in range(spectro[0],spectro[1]+1):
-                    self.topology[path[i]][path[i+1]]['capacity'][slot] = 0
+                    self.topology[path[i]][path[i+1]]['slots'][slot] = 0
     def _desaloca_janela(self, path, spectro, holding_time):
         try:
             yield self.enviromment.timeout(holding_time)
@@ -66,7 +73,7 @@ class Topologia:
         fim = spectro[1]
         for i in range(0,len(path)-1):
             for slot in range(inicio,fim+1):
-                self.topology[path[i]][path[i+1]]['capacity'][slot] = 1
+                self.topology[path[i]][path[i+1]]['slots'][slot] = 1
         
     def distancia_caminho(self, path):
         soma = 0
@@ -74,8 +81,9 @@ class Topologia:
             soma += self.topology[path[i]][path[i+1]]['weight']
         return (soma)
     
-    def caminho_passa_por_link( ponto_a, ponto_b, caminho):
+    def caminho_passa_por_link(self, ponto_a, ponto_b, caminho) -> bool:
         
-        return (any( caminho[index] == ponto_a and caminho[index+1] == ponto_b for index in range(len(caminho))) or
-                any( caminho[index] == ponto_b and caminho[index+1] == ponto_a for index in range(len(caminho)))
-                )
+        return any( (caminho[index] == ponto_a and caminho[index+1] or caminho[index] == ponto_b and caminho[index+1]== ponto_b ) for index in range(len(caminho)-1))
+    
+    def caminho_em_funcionamento(self, caminho) -> bool:
+        return not any( self.topology[caminho[i]][caminho[i+1]]['failed'] for i in range(len(caminho)-1) )
