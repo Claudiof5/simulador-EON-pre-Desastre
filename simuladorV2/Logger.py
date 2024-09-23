@@ -13,6 +13,12 @@ class Logger:
     def get_instance():
         return Logger.instance
     
+    def mensagem_finaliza_migracao( isp_id :int, time :int, percentual :float):
+        instance = Logger.get_instance()
+
+        if instance.ativo:
+            print(f"ISP {isp_id} finalizou migração no tempo {time}, {percentual*100}% da migração concluída")
+        
     def mensagem_acompanha_requisicoes( reqid :int, time :int, numero_requisicoes:int):
         instance = Logger.get_instance()
 
@@ -33,7 +39,7 @@ class Logger:
 
             if isp_id not in instance.isps_sendo_acompanhada:
                 instance.isps_sendo_acompanhada[isp_id] = [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-            
+            print(percentual)
             if percentual >= instance.isps_sendo_acompanhada[isp_id][0]:
                 print(f"Status ISP {isp_id}, {percentual*100}% da migração concluída no tempo {time}")
                 instance.isps_sendo_acompanhada[isp_id].pop(0)

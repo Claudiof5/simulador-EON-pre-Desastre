@@ -8,3 +8,4 @@
 6 - Ajustar parametros
 7 - Considerar novas metricas a serem coletadas
 8 - Criar tecnica de Roteamento pra desastre
+9 - Parar migração uma vez que o desastre terminar e registrar a porcentagem

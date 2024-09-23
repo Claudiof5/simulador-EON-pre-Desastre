@@ -17,10 +17,10 @@ if TYPE_CHECKING:
     
 
 class ISP:
-    def __init__(self, id, nodes, edges):
-        self.id = id
-        self.nodes = nodes
-        self.edges = edges
+    def __init__(self, id: int, nodes: list[int], edges:list[tuple[int,int]]):
+        self.id: int = id
+        self.nodes: list[int] = nodes
+        self.edges: list[tuple[ int, int ]]  = edges
         self.roteamento :'iRoteamento' = Roteamento
         self.roteamento_desastre :'iRoteamento' = Roteamento
         self.datacenter :Datacenter = None

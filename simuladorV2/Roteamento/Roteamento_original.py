@@ -1,6 +1,6 @@
 from Requisicao.Requisicao import Requisicao
 from Topologia import Topologia
-from Contador import Contador
+from simuladorV2.Registrador import Registrador
 from Roteamento.iRoteamento import iRoteamento
 import math
 SLOT_SIZE = 12.5
@@ -20,9 +20,9 @@ class Roteamento(iRoteamento):
 
     def bloqueia_requisicao(self, requisicao: Requisicao, topology: Topologia):
         requisicao.bloqueia_requisicao( topology.enviromment.now)
-        Contador.conta_bloqueio_requisicao_banda(requisicao.bandwidth)
-        Contador.conta_bloqueio_requisicao_classe(requisicao.class_type)
-        Contador.incrementa_numero_requisicoes_bloqueadas()
+        Registrador.conta_bloqueio_requisicao_banda(requisicao.bandwidth)
+        Registrador.conta_bloqueio_requisicao_classe(requisicao.class_type)
+        Registrador.incrementa_numero_requisicoes_bloqueadas()
 
     def aloca_requisicao(self, requisicao: Requisicao, topology: Topologia, informacoes_datapaths: dict):
 
@@ -51,7 +51,7 @@ class Roteamento(iRoteamento):
 
         bandwidth_nescessaria -= throughput_da_janela
 
-        Contador.incrementa_numero_requisicoes()
+        Registrador.incrementa_numero_requisicoes()
         topology.aloca_janela(caminho, [inicio, fim] )
 
         requisicao.processo_de_desalocacao = topology.desaloca_janela(caminho, [inicio, fim], requisicao.holding_time)
@@ -62,7 +62,7 @@ class Roteamento(iRoteamento):
 
     def retorna_informacoes_datapaths(self, requisicao: Requisicao, topology: Topologia):
 
-        caminhos = topology.k_paths[requisicao.src, requisicao.dst]
+        caminhos = topology.caminhos_mais_curtos_entre_links[requisicao.src, requisicao.dst]
     
 
         lista_de_informacoes_datapath = []

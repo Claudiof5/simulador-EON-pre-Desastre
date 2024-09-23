@@ -10,22 +10,22 @@ from ISP.ISP import ISP
 from Requisicao.Requisicao import Requisicao
 from Variaveis import *
 from Logger import Logger
-from GeradorCenarioSimulacao import GeradorCenarioSimulacao, Cenario
-from Contador import Contador
+from cenario.GeradorCenarioSimulacao import GeradorCenarioSimulacao, Cenario
+from Registrador import Registrador
 
 class Simulador:
 
-    def __init__(self, env: simpy.Environment, topology: nx.Graph, status_logger: bool = False, cenario = None ) -> None:
+    def __init__(self, env: simpy.Environment, topology: nx.Graph, status_logger: bool = False, cenario:Cenario = None ) -> None:
         Logger(status_logger)
         self.inicia_atributos( topology, env, cenario )
         self.simulacao_finalizada = False
 
     def inicia_atributos( self, topology: nx.Graph, env: simpy.Environment, cenario :Cenario = None ):
         if cenario == None:
-            lista_de_ISPs, desastre, topology = GeradorCenarioSimulacao.gerar_cenario( topology, env )
+            topology, lista_de_ISPs, desastre = GeradorCenarioSimulacao.gerar_cenario( topology, env )
             
         else:
-            lista_de_ISPs, desastre, topology = cenario.retorna_atributos()
+            topology, lista_de_ISPs, desastre = cenario.retorna_atributos()
 
         self.env           :simpy.Environment = env
         self.lista_de_ISPs :list[ISP] = lista_de_ISPs
@@ -43,7 +43,7 @@ class Simulador:
             
             yield self.env.timeout(random.expovariate( REQUISICOES_POR_SEGUNDO ) )
             requisicao: Requisicao = GeradorDeTrafico.gerar_requisicao( self.topology, req_id )
-            Contador.adiciona_requisicao( requisicao )
+            Registrador.adiciona_requisicao( requisicao )
             id_ISP_origem = requisicao.src_ISP_index
             roteador: iRoteamento = self.lista_de_ISPs[id_ISP_origem].roteamento
             roteador.rotear_requisicao( requisicao, self.topology )
@@ -51,3 +51,5 @@ class Simulador:
 
         self.simulacao_finalizada = True
 
+    def salvar_dataframe(self):
+        return Registrador.criar_dataframe()

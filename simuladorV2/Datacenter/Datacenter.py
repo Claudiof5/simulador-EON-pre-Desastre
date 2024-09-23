@@ -5,6 +5,7 @@ from random import expovariate
 from Requisicao.Requisicao import Requisicao    
 from Roteamento.iRoteamento import iRoteamento
 from Logger import Logger
+from Registrador import Registrador
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -27,11 +28,11 @@ class Datacenter:
     def migrar(self, simulador: 'Simulador', isp: 'ISP'):
         Logger.mensagem_inicia_migracao(isp.id, self.source, self.destination, simulador.env.now)
         taxa_mensagens =  self.throughput_por_segundo / (sum(BANDWIDTH)/len(BANDWIDTH))
-
+        inicio_desastre = simulador.desastre.start
         id = 0
 
         dados_enviados = 0
-        while(dados_enviados < self.tamanho_datacenter):
+        while(dados_enviados < self.tamanho_datacenter and simulador.env.now < inicio_desastre):
             yield simulador.env.timeout(expovariate( taxa_mensagens ) )
             
             
@@ -39,7 +40,7 @@ class Datacenter:
             bandwidth = choice(BANDWIDTH)
             holding_time = expovariate(HOLDING_TIME)
 
-            requisicao = Requisicao(id , self.source, self.destination, isp.id, isp.id, bandwidth, class_type, holding_time)
+            requisicao = Requisicao(f"{isp.id}.{id}" , self.source, self.destination, isp.id, isp.id, bandwidth, class_type, holding_time, True)
             self.requisicoes_de_migracao.append(requisicao)
             id += 1
             roteador :iRoteamento = isp.roteamento
@@ -47,4 +48,8 @@ class Datacenter:
             if resultado:
                 dados_enviados += bandwidth
                 Logger.mensagem_acompanha_status_migracao(isp.id, dados_enviados/self.tamanho_datacenter, simulador.env.now)
+
+        Registrador.porcentagem_de_dados_enviados(isp.id, simulador.env.now, dados_enviados/self.tamanho_datacenter)
+        Logger.mensagem_finaliza_migracao(isp.id, simulador.env.now, dados_enviados/self.tamanho_datacenter)
+        
             

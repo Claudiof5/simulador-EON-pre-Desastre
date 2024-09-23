@@ -10,7 +10,7 @@ import math
 from random import *
 from VARIAVEIS import *
 from utils import k_shortest_paths, Modulation, FatorModulation
-from Contador import Contador
+from simuladorV2.Registrador import Contador
 
 desastre_padrao = {"duration":DURACAO_DESASTRE, "nodes":NODE_POINTS, "links":LINK_POINTS, "start":TEMPO_INICIO_DESASTRE}
 

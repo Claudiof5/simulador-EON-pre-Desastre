@@ -4,7 +4,7 @@ from ISP.ISP import ISP
 from Requisicao.Requisicao import Requisicao
 from Roteamento.iRoteamento import iRoteamento
 from Logger import Logger
-
+from Registrador import Registrador
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from Simulador import Simulador
@@ -23,7 +23,6 @@ class Desastre:
         simulador.env.process(self.gerar_falhas(simulador))
 
         for isp in simulador.lista_de_ISPs:
-            isp.define_datacenter(self, simulador.topology.topology)
             simulador.env.process(isp.iniciar_migracao(simulador))
 
     def gerar_falhas(self, simulador:'Simulador'):
@@ -66,9 +65,8 @@ class Desastre:
             for requisicao in requisicoes_falhas:
                 requisicao.processo_de_desalocacao.interrupt()
                 index_isp = requisicao.src_ISP_index
-                topology._desalocate(requisicao.resultados_requisicao["path"], requisicao.resultados_requisicao["spectro"])
-                requisicao.resultados_requisicao = None
-                requisicao.bloqueada = None
+                topology._desalocate(requisicao.caminho, requisicao.index_de_inicio_e_final)
+                requisicao.afetada_por_desastre = True
                 roteador: iRoteamento = simulador.lista_de_ISPs[index_isp].roteamento
                 roteador.rerotear_requisicao(requisicao, topology)
 
@@ -84,9 +82,13 @@ class Desastre:
 
     def Quem_falhou_link(self, pontaa, pontab, simulador:'Simulador') -> list[Requisicao] :
         requisicoes_ativas_que_falharam_no_link:list[Requisicao] = []
-        for req in simulador.requisicoes:
-            if req.bloqueada == False and req.processo_de_desalocacao.is_alive and simulador.topology.caminho_passa_por_link(pontaa, pontab, req.resultados_requisicao["path"]):
-                requisicoes_ativas_que_falharam_no_link.append(req)
+        requisicoes = Registrador.get_requisicoes()
 
+        for req in requisicoes:
+            if req.bloqueada == False and req.processo_de_desalocacao.is_alive and simulador.topology.caminho_passa_por_link(pontaa, pontab, req.caminho):
+                req.afetada_por_desastre = True
+                req.dados_pre_reroteamento = req.retorna_tupla_chave_dicionario_dos_atributos()[1]
+                requisicoes_ativas_que_falharam_no_link.append(req)
+        Registrador.registra_numero_de_afetadas(len(requisicoes_ativas_que_falharam_no_link))
         return requisicoes_ativas_que_falharam_no_link
 
