@@ -4,48 +4,52 @@ from Registrador import Registrador
 from Roteamento.iRoteamento import iRoteamento
 from Variaveis import *
 import math
-
+from simpy import Environment
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from Topologia import Topologia
-    
+    from Simulador import Simulador
+
 class Roteamento(iRoteamento):
 
 
-    def rotear_requisicao( requisicao: Requisicao, topology: 'Topologia') -> bool:
+    def rotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
-            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths)
+            Registrador.incrementa_numero_requisicoes_aceitas()
+            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
             return True
         else:
-            requisicao.bloqueia_requisicao( topology.enviromment.now)
+            requisicao.bloqueia_requisicao( env.now)
             Registrador.conta_bloqueio_requisicao_banda(requisicao.bandwidth)
             Registrador.conta_bloqueio_requisicao_classe(requisicao.class_type)
             Registrador.incrementa_numero_requisicoes_bloqueadas()
             return False
 
-    def rerotear_requisicao( requisicao: Requisicao, topology: 'Topologia') -> bool:
+    def rerotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
+        requisicao.dados_pre_reroteamento = requisicao.retorna_tupla_chave_dicionario_dos_atributos()
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
-            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths)
+            Registrador.incrementa_numero_requisicoes_reroteadas_aceitas()
+            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
             return True
         else:
-            requisicao.bloqueia_requisicao( topology.enviromment.now)
+            requisicao.bloqueia_requisicao( env.now)
             Registrador.conta_bloqueio_reroteadas_por_banda(requisicao.bandwidth)
             Registrador.conta_bloqueio_reroteadas_por_classe(requisicao.class_type)
             Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas()
             return False
 
-    def aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict) -> None:
+    def aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment) -> None:
 
         for informacoes_datapath in informacoes_datapaths:
             if informacoes_datapath["maior_janela_contigua_continua"] >= informacoes_datapath["numero_slots_necessarios"]:
-                Roteamento.aloca_datapath(requisicao, topology, informacoes_datapath)
+                Roteamento.aloca_datapath(requisicao, topology, informacoes_datapath, env)
                 break
         
-    def aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict) -> None:
+    def aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict, env: Environment) -> None:
         
         #janelas_possiveis = [ janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]]
         primeira_janela_disponivel = next( (janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]), None)
@@ -54,16 +58,17 @@ class Roteamento(iRoteamento):
         fim = primeira_janela_disponivel[0] + informacoes_datapath["numero_slots_necessarios"] - 1
         caminho = informacoes_datapath["caminho"]
 
-        Registrador.incrementa_numero_requisicoes()
         topology.aloca_janela(caminho, [inicio, fim] )
 
-        requisicao.processo_de_desalocacao = topology.enviromment.process( topology.desaloca_janela(caminho, [inicio, fim], requisicao.holding_time) )
+        requisicao.processo_de_desalocacao = env.process(topology.desaloca_janela(caminho, [inicio, fim], requisicao.holding_time, env))
 
-        requisicao.aceita_requisicao(informacoes_datapath["numero_slots_necessarios"], caminho, len(caminho), [inicio, fim], topology.enviromment.now, topology.enviromment.now+requisicao.holding_time, topology.distancia_caminho(caminho))
+
+        requisicao.aceita_requisicao(informacoes_datapath["numero_slots_necessarios"], caminho, len(caminho), [inicio, fim],
+                                            env.now, env.now + requisicao.holding_time, informacoes_datapath["distancia"])
         
     def retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
 
-        caminhos = topology.caminhos_mais_curtos_entre_links[requisicao.src][ requisicao.dst]
+        caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][ int(requisicao.dst)]
     
 
         lista_de_informacoes_datapath = []
@@ -84,7 +89,8 @@ class Roteamento(iRoteamento):
             listas_de_tamanhos_das_janelas = [len(x) for x in slots_livres_agrupados]
             
             maior_janela =  max(listas_de_tamanhos_das_janelas) if len(listas_de_tamanhos_das_janelas) > 0 else 0
-            pelo_menos_uma_janela_habil = maior_janela >= numero_slots_necessarios
+            if pelo_menos_uma_janela_habil == False:
+                pelo_menos_uma_janela_habil = maior_janela >= numero_slots_necessarios
 
             dados_do_caminho = {"caminho": caminho, "distancia": distancia, "fator_de_modulacao": fator_de_modulacao, 
                                 "numero_de_slots_livres": numero_de_slots_livres, "capacidade_do_caminho": capacidade_do_caminho,

@@ -21,7 +21,14 @@ class Requisicao:
 
         self.processo_de_desalocacao :simpy.events.Process = None
     
-
+        self.numero_de_slots: int = None
+        self.caminho: list[int] = None
+        self.tamanho_do_caminho: int = None
+        self.index_de_inicio_e_final: tuple[int, int] = None
+        self.tempo_criacao: float = None
+        self.tempo_desalocacao: float = None
+        self.distacia: int = None
+        
     def bloqueia_requisicao(self, tempo_criacao: float) -> None:
         
         self.numero_de_slots: int = None
@@ -62,5 +69,6 @@ class Requisicao:
             "index_de_inicio_e_final": self.index_de_inicio_e_final,
             "tempo_criacao": self.tempo_criacao,
             "tempo_desalocacao": self.tempo_desalocacao,
-            "distacia": self.distacia
+            "distacia": self.distacia,
+            "dados_pre_reroteamento": self.dados_pre_reroteamento
         })

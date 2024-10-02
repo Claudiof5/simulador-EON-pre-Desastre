@@ -39,7 +39,6 @@ class Logger:
 
             if isp_id not in instance.isps_sendo_acompanhada:
                 instance.isps_sendo_acompanhada[isp_id] = [ 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1]
-            print(percentual)
             if percentual >= instance.isps_sendo_acompanhada[isp_id][0]:
                 print(f"Status ISP {isp_id}, {percentual*100}% da migração concluída no tempo {time}")
                 instance.isps_sendo_acompanhada[isp_id].pop(0)

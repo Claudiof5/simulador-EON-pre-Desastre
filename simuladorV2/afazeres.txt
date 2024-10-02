@@ -1,11 +1,12 @@
 
-
-1 - Mudar o nome da classe Contador para Registrador
-2 - Mudar referencia a lista de requisições que anteriormente estava em Simulador
-3 - Criar função em Requisicao que transforma o mesmo em uma linha de tabela
-4 - Criar função de exportar dados das requisições em formato tabela
 5 - Criar gerador de graficos
 6 - Ajustar parametros
 7 - Considerar novas metricas a serem coletadas
 8 - Criar tecnica de Roteamento pra desastre
-9 - Parar migração uma vez que o desastre terminar e registrar a porcentagem
+
+
+erros:
+    -vez ou outra datacenter inicia migração para node 0 que não existe na topologia
+
+afazeres:
+    -adapatar Simulador.py de maneira que caso um cenario com uma lista de Requisicoes for passada ele haja de acordo

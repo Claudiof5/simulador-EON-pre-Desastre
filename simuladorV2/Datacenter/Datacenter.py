@@ -6,6 +6,7 @@ from Requisicao.Requisicao import Requisicao
 from Roteamento.iRoteamento import iRoteamento
 from Logger import Logger
 from Registrador import Registrador
+from simuladorV2.Requisicao.GeradorDeTrafego import GeradorDeTrafico
 
 from typing import TYPE_CHECKING
 if TYPE_CHECKING:
@@ -19,8 +20,6 @@ class Datacenter:
         self.tempo_de_reacao: float = tempo_de_reacao
         self.tamanho_datacenter: float = tamanho_datacenter
         self.throughput_por_segundo: float = throughput_por_segundo
-        self.requisicoes_de_migracao: list[Requisicao] = []
-        
 
     def iniciar_migracao(self, simulador: 'Simulador', isp: 'ISP'):
         simulador.env.process( self.migrar(simulador, isp) )
@@ -29,8 +28,8 @@ class Datacenter:
         Logger.mensagem_inicia_migracao(isp.id, self.source, self.destination, simulador.env.now)
         taxa_mensagens =  self.throughput_por_segundo / (sum(BANDWIDTH)/len(BANDWIDTH))
         inicio_desastre = simulador.desastre.start
-        id = 0
 
+        id = 0
         dados_enviados = 0
         while(dados_enviados < self.tamanho_datacenter and simulador.env.now < inicio_desastre):
             yield simulador.env.timeout(expovariate( taxa_mensagens ) )
@@ -39,12 +38,16 @@ class Datacenter:
             class_type = choice(CLASS_TYPE, p=CLASS_WEIGHT)
             bandwidth = choice(BANDWIDTH)
             holding_time = expovariate(HOLDING_TIME)
+            dict_values = {"src": self.source, "dst": self.destination, "src_ISP": isp.id, "dst_ISP": isp.id, "bandwidth": bandwidth,
+                            "holding_time": holding_time, "class_type": class_type, "requisicao_de_migracao": True}
+         
+            requisicao: Requisicao = GeradorDeTrafico.gerar_requisicao(simulador.topology, f"{isp.id}.{id}", dict_values)
+            requisicao.requisicao_de_migracao == True
+            Registrador.adiciona_requisicao(requisicao)
 
-            requisicao = Requisicao(f"{isp.id}.{id}" , self.source, self.destination, isp.id, isp.id, bandwidth, class_type, holding_time, True)
-            self.requisicoes_de_migracao.append(requisicao)
             id += 1
             roteador :iRoteamento = isp.roteamento
-            resultado = roteador.rotear_requisicao(requisicao, simulador.topology)
+            resultado = roteador.rotear_requisicao(requisicao, simulador.topology, simulador.env)
             if resultado:
                 dados_enviados += bandwidth
                 Logger.mensagem_acompanha_status_migracao(isp.id, dados_enviados/self.tamanho_datacenter, simulador.env.now)

@@ -3,6 +3,7 @@ import numpy as np
 from itertools import combinations
 from collections import defaultdict
 from ISP.ISP import ISP
+from Roteamento.iRoteamento import iRoteamento
 
 class GeradorDeISPs:
 
@@ -65,10 +66,12 @@ class GeradorDeISPs:
         
         return returndict
     @staticmethod
-    def gerar_lista_ISPs_aleatorias( topology: nx.Graph, numero_de_ISPs:int) -> list[ISP]:
+    def gerar_lista_ISPs_aleatorias( topology: nx.Graph, numero_de_ISPs: int, roteamento_de_desastre: 'iRoteamento') -> list[ISP]:
         
         while True:
             centers = np.random.choice(list(topology.nodes), numero_de_ISPs, replace=False)
+            centers = [int(node) for node in np.random.choice(list(topology.nodes), numero_de_ISPs, replace=False)]
+
             ISPS_dict = {}
             for i, source in enumerate(centers):
                 ISP_nodes = [source]
@@ -97,7 +100,7 @@ class GeradorDeISPs:
         
         lista_de_ISPs = []
         for id, dict in ISPS_dict.items():
-            lista_de_ISPs.append(ISP(id, dict["nodes"], dict["edges"]))
+            lista_de_ISPs.append(ISP(id, dict["nodes"], dict["edges"], roteamento_de_desastre=roteamento_de_desastre))
 
         return lista_de_ISPs
 

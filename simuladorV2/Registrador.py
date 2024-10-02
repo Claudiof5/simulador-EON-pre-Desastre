@@ -1,5 +1,6 @@
 from Requisicao.Requisicao import Requisicao
 import pandas as pd
+import json
 
 class Registrador:
 
@@ -31,6 +32,9 @@ class Registrador:
             Registrador.instance = Registrador()
         return Registrador.instance
     
+    def reseta_registrador() -> None:
+        Registrador.instance = Registrador()
+
     def porcentagem_de_dados_enviados(isp_id: int, time: int, percentual: float) -> None:
         registrador: Registrador = Registrador.get_intance()
 
@@ -40,9 +44,9 @@ class Registrador:
         registrador: Registrador = Registrador.get_intance()
         return registrador.requisicoes
     
-    def registra_numero_de_afetadas( numero_de_afetadas: int) -> None:
+    def adiciona_numero_de_afetadas( numero_de_afetadas: int) -> None:
         registrador: Registrador = Registrador.get_intance()
-        registrador.numero_requisicoes_afetadas_desastre = numero_de_afetadas
+        registrador.numero_requisicoes_afetadas_desastre += numero_de_afetadas
     
     def adiciona_requisicao(requisicao: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
@@ -83,7 +87,7 @@ class Registrador:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_reroteadas_bloqueadas_por_banda[banda] += 1
         
-    def incrementa_numero_requisicoes() -> None:
+    def incrementa_numero_requisicoes_aceitas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes +=1
 
@@ -91,7 +95,7 @@ class Registrador:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_bloqueadas +=1
 
-    def incrementa_numero_requisicoes_reroteadas() -> None:
+    def incrementa_numero_requisicoes_reroteadas_aceitas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_reroteadas += 1
     
@@ -105,17 +109,18 @@ class Registrador:
         print("Numero de requisicoes bloqueadas por classe: ", registrador.numero_requisicoes_bloqueadas_por_classe)
         print("Numero de requisicoes por banda: ", registrador.numero_requisicoes_por_banda)
         print("Numero de requisicoes bloqueadas por banda: ", registrador.numero_requisicoes_bloqueadas_por_banda)
-        print("Numero de requisicoes afetadas por desastre: ", registrador.numero_requisicoes_afetadas_desastre)
         print("Numero de requisicoes reroteadas por classe: ", registrador.numero_reroteadas_por_classe)
         print("Numero de requisicoes reroteadas bloqueadas por classe: ", registrador.numero_reroteadas_bloqueadas_por_classe)
         print("Numero de requisicoes reroteadas por banda: ", registrador.numero_reroteadas_por_banda)
         print("Numero de requisicoes reroteadas bloqueadas por banda: ", registrador.numero_reroteadas_bloqueadas_por_banda)
         print("Numero de requisicoes: ", registrador.numero_requisicoes)
         print("Numero de requisicoes bloqueadas: ", registrador.numero_requisicoes_bloqueadas)
-        print("Numero de requisicoes reroteadas: ", registrador.numero_requisicoes_reroteadas)
+        print("Numero de requisicoes afetadas por desastre: ", registrador.numero_requisicoes_afetadas_desastre)
+        print("Numero de requisicoes reroteadas aceitas: ", registrador.numero_requisicoes_reroteadas)
         print("Numero de requisicoes reroteadas bloqueadas: ", registrador.numero_requisicoes_reroteadas_bloqueadas)
-        print("Momento da migração concluída: ", registrador.migracao_concluida)
-    def criar_dataframe() -> None:
+        print("Momentos da migração concluída: ", registrador.migracao_concluida)
+        
+    def criar_dataframe( nome: str) -> None:
         registrador: Registrador = Registrador.get_intance()
 
         data = {}
@@ -126,5 +131,9 @@ class Registrador:
         df.reset_index(inplace=True)
         df.rename(columns={'index': 'Index da Requisição'}, inplace=True)
 
-        df.to_csv('_out/dataframe.csv')
+        df.to_csv(f'_out/{nome}.csv')
         return df
+    
+    def salva_resutados(self, nome):
+        with open(f'_out/resultados/{nome}.json', 'w') as f:
+            json.dump(self.__dict__, f, indent=4)

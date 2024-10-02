@@ -17,12 +17,12 @@ if TYPE_CHECKING:
     
 
 class ISP:
-    def __init__(self, id: int, nodes: list[int], edges:list[tuple[int,int]]):
+    def __init__(self, id: int, nodes: list[int], edges:list[tuple[int,int]], roteamento_de_desastre: 'iRoteamento' = Roteamento) -> None:
         self.id: int = id
         self.nodes: list[int] = nodes
         self.edges: list[tuple[ int, int ]]  = edges
         self.roteamento :'iRoteamento' = Roteamento
-        self.roteamento_desastre :'iRoteamento' = Roteamento
+        self.roteamento_desastre :'iRoteamento' = roteamento_de_desastre
         self.datacenter :Datacenter = None
 
 
@@ -36,3 +36,11 @@ class ISP:
                 self.datacenter.iniciar_migracao(simulador, self)
                 break
             yield simulador.env.timeout(1)
+    
+    def imprime_ISP(self):
+        print("ID: ", self.id)
+        print("Nós: ", self.nodes)
+        print("Arestas: ", self.edges)
+
+    def troca_roteamento_desastre(self, roteamento: 'iRoteamento'):
+        self.roteamento_desastre = roteamento

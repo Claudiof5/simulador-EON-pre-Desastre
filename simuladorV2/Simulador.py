@@ -3,14 +3,15 @@ import simpy
 import networkx as nx
 import random
 from Topologia import Topologia
-from Requisicao.GeradorDeTrafico import GeradorDeTrafico
+from simuladorV2.Requisicao.GeradorDeTrafego import GeradorDeTrafego
 from Roteamento.iRoteamento import iRoteamento
 from Desastre.Desastre import Desastre
 from ISP.ISP import ISP
 from Requisicao.Requisicao import Requisicao
 from Variaveis import *
 from Logger import Logger
-from cenario.GeradorCenarioSimulacao import GeradorCenarioSimulacao, Cenario
+from simuladorV2.Cenario.GeradorDeCenarios import GeradorDeCenarios
+from Cenario.Cenario import Cenario
 from Registrador import Registrador
 
 class Simulador:
@@ -20,17 +21,17 @@ class Simulador:
         self.inicia_atributos( topology, env, cenario )
         self.simulacao_finalizada = False
 
-    def inicia_atributos( self, topology: nx.Graph, env: simpy.Environment, cenario :Cenario = None ):
+    def inicia_atributos( self, topology: nx.Graph, env: simpy.Environment, cenario :Cenario = None ) ->None:
         if cenario == None:
-            topology, lista_de_ISPs, desastre = GeradorCenarioSimulacao.gerar_cenario( topology, env )
-            
+            topology, lista_de_ISPs, desastre, lista_de_requisicoes = GeradorDeCenarios.gerar_cenario( topology, env )
         else:
-            topology, lista_de_ISPs, desastre = cenario.retorna_atributos()
+            topology, lista_de_ISPs, desastre, lista_de_requisicoes = cenario.retorna_atributos()
 
-        self.env           :simpy.Environment = env
+        self.env: simpy.Environment = env
         self.lista_de_ISPs :list[ISP] = lista_de_ISPs
-        self.desastre      :Desastre  = desastre
-        self.topology      :Topologia = topology
+        self.desastre: Desastre  = desastre
+        self.topology: Topologia = topology
+        self.lista_de_requisicoes: list[Requisicao] = lista_de_requisicoes
 
     def run( self ):
         self.env.process( self._run() )
@@ -39,17 +40,25 @@ class Simulador:
     def _run( self):
         self.desastre.iniciar_desastre( self )
         
-        for req_id in range( 1, NUMERO_DE_REQUISICOES + 1 ):
+        numero_de_iteracoes = len(self.lista_de_requisicoes) if self.lista_de_requisicoes != None else NUMERO_DE_REQUISICOES 
+        for req_id in range( 1, numero_de_iteracoes + 1 ):
             
             yield self.env.timeout(random.expovariate( REQUISICOES_POR_SEGUNDO ) )
-            requisicao: Requisicao = GeradorDeTrafico.gerar_requisicao( self.topology, req_id )
+            requisicao: Requisicao = self.pegar_requisicao( self.topology, req_id )
             Registrador.adiciona_requisicao( requisicao )
             id_ISP_origem = requisicao.src_ISP_index
             roteador: iRoteamento = self.lista_de_ISPs[id_ISP_origem].roteamento
-            roteador.rotear_requisicao( requisicao, self.topology )
+            roteador.rotear_requisicao( requisicao, self.topology, self.env )
             Logger.mensagem_acompanha_requisicoes( req_id, self.env.now, 10000 )
 
         self.simulacao_finalizada = True
 
-    def salvar_dataframe(self):
-        return Registrador.criar_dataframe()
+    def pegar_requisicao(self, topology: Topologia, req_id: int) -> Requisicao:
+        
+        if self.lista_de_requisicoes:
+            return self.lista_de_requisicoes.pop(0)
+        else:
+            return GeradorDeTrafego.gerar_requisicao( topology, req_id )
+    
+    def salvar_dataframe( self, nome: str ) -> None:
+        return Registrador.criar_dataframe( nome )

@@ -19,6 +19,12 @@ class Desastre:
         self.links_em_falha = [] 
         self.nodes_em_falha = []  
         
+    def imprime_desastre(self) -> None:
+        print("Início do desastre: ", self.start)
+        print("Duração do desastre: ", self.duration)
+        print("Nós em falha: ", self.list_of_dict_node_per_start_time)
+        print("Links em falha: ", self.list_of_dict_link_per_start_time)
+        
     def iniciar_desastre(self, simulador:'Simulador') -> None:
         simulador.env.process(self.gerar_falhas(simulador))
 
@@ -63,12 +69,18 @@ class Desastre:
 
             
             for requisicao in requisicoes_falhas:
-                requisicao.processo_de_desalocacao.interrupt()
-                index_isp = requisicao.src_ISP_index
-                topology._desalocate(requisicao.caminho, requisicao.index_de_inicio_e_final)
-                requisicao.afetada_por_desastre = True
-                roteador: iRoteamento = simulador.lista_de_ISPs[index_isp].roteamento
-                roteador.rerotear_requisicao(requisicao, topology)
+                if requisicao.afetada_por_desastre == False:
+                    Registrador.conta_reroteadas_por_banda(requisicao.bandwidth)
+                    Registrador.conta_reroteadas_por_classe(requisicao.class_type)
+                    Registrador.adiciona_numero_de_afetadas(1)
+
+                    requisicao.processo_de_desalocacao.interrupt()
+                    index_isp = requisicao.src_ISP_index
+                    topology._desalocate(requisicao.caminho, requisicao.index_de_inicio_e_final)
+                    requisicao.afetada_por_desastre = True
+                    roteador: iRoteamento = simulador.lista_de_ISPs[index_isp].roteamento
+                    roteador.rerotear_requisicao(requisicao, topology, simulador.env)
+                    requisicao.afetada_por_desastre = True
 
     def FalhaNoNo(self, node, simulador:'Simulador'):
         topology = simulador.topology.topology
@@ -85,10 +97,11 @@ class Desastre:
         requisicoes = Registrador.get_requisicoes()
 
         for req in requisicoes:
-            if req.bloqueada == False and req.processo_de_desalocacao.is_alive and simulador.topology.caminho_passa_por_link(pontaa, pontab, req.caminho):
-                req.afetada_por_desastre = True
+            if (req.bloqueada == False and simulador.topology.caminho_passa_por_link(pontaa, pontab, req.caminho) and
+                 simulador.env.now >= req.tempo_criacao and simulador.env.now < req.tempo_desalocacao):
+                
                 req.dados_pre_reroteamento = req.retorna_tupla_chave_dicionario_dos_atributos()[1]
                 requisicoes_ativas_que_falharam_no_link.append(req)
-        Registrador.registra_numero_de_afetadas(len(requisicoes_ativas_que_falharam_no_link))
+            
         return requisicoes_ativas_que_falharam_no_link
 
