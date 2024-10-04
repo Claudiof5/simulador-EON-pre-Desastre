@@ -11,8 +11,9 @@ if TYPE_CHECKING:
 
 
 class GeradorDeDatacenter:
-
-    def gerar_datacenter( disaster: 'Desastre', topology: nx.Graph, nodes_isp:list, specific_values = None) -> None:
+    
+    @staticmethod
+    def gerar_datacenter( disaster: 'Desastre', topology: nx.Graph, nodes_isp:list, specific_values = None) -> 'Datacenter':
 
         if specific_values == None:
             datacenterSource = np.random.choice(disaster.list_of_dict_node_per_start_time)["node"]

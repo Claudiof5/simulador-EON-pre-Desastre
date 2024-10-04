@@ -1,4 +1,5 @@
 
+from typing import Generator
 import simpy
 import networkx as nx
 import random
@@ -37,7 +38,7 @@ class Simulador:
         self.env.process( self._run() )
         self.env.run()
 
-    def _run( self):
+    def _run( self) -> Generator:
         self.desastre.iniciar_desastre( self )
         
         numero_de_iteracoes = len(self.lista_de_requisicoes) if self.lista_de_requisicoes != None else NUMERO_DE_REQUISICOES 

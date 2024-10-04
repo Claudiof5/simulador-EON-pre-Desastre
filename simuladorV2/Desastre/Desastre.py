@@ -8,8 +8,8 @@ from Registrador import Registrador
 from typing import TYPE_CHECKING, Generator
 if TYPE_CHECKING:
     from Simulador import Simulador
+    
 class Desastre:
-
 
     def __init__(self, start, duration, list_of_dict_node_per_start_time, list_of_dict_link_per_start_time) -> None:
         self.start = start

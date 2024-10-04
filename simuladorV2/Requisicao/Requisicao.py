@@ -3,7 +3,11 @@ import simpy.events
 
 class Requisicao:
 
-    def __init__(self, id: str, src: int, dst: int, src_ISP: int, dst_ISP: int, bandwidth: int, class_type: int, holding_time: float, requisicao_de_migracao: bool = False ):
+    def __init__(
+            self, id: str, src: int, dst: int, src_ISP: int, dst_ISP: int, bandwidth: int, class_type: int,
+            holding_time: float, requisicao_de_migracao: bool = False 
+              ) -> None:
+        
         self.id: str = id
         self.src: int = src
         self.dst: int = dst
@@ -40,7 +44,10 @@ class Requisicao:
         self.distacia: int = None
         self.bloqueada: bool = True
     					
-    def aceita_requisicao(self, numero_de_slots: int, caminho: list[int], tamanho_do_caminho: int, index_de_inicio_e_final: tuple[int, int], tempo_criacao: float, tempo_desalocacao: float, distancia: int) -> None:
+    def aceita_requisicao(self, 
+                          numero_de_slots: int, caminho: list[int], tamanho_do_caminho: int, 
+                          index_de_inicio_e_final: tuple[int, int], tempo_criacao: float, 
+                          tempo_desalocacao: float, distancia: int) -> None:
         
         self.numero_de_slots: int = numero_de_slots
         self.caminho: list[int] = caminho

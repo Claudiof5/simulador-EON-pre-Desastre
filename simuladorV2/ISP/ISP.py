@@ -21,7 +21,8 @@ class ISP:
         self.id: int = id
         self.nodes: list[int] = nodes
         self.edges: list[tuple[ int, int ]]  = edges
-        self.roteamento :'iRoteamento' = Roteamento
+        self.roteamento_atual :'iRoteamento' = Roteamento
+        self.roteamento_primario :'iRoteamento' = Roteamento
         self.roteamento_desastre :'iRoteamento' = roteamento_de_desastre
         self.datacenter :Datacenter = None
 
@@ -32,7 +33,7 @@ class ISP:
     def iniciar_migracao(self, simulador :'Simulador') -> Generator:
         while(True):
             if simulador.env.now >= self.datacenter.tempo_de_reacao:
-                self.roteamento = self.roteamento_desastre
+                self.roteamento_atual = self.roteamento_desastre
                 self.datacenter.iniciar_migracao(simulador, self)
                 break
             yield simulador.env.timeout(1)
