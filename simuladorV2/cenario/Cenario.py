@@ -28,7 +28,7 @@ class Cenario:
             isp.imprime_ISP()
             print("")
         
-    def troca_roteamento_lista_de_desastre( self, roteamento: 'iRoteamento'):
+    def troca_roteamento_lista_de_desastre( self, roteamento: 'iRoteamento') -> None:
         for isp in self.lista_de_ISPs:
             isp.troca_roteamento_desastre( roteamento )
     

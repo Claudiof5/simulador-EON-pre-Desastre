@@ -15,10 +15,10 @@ class RoteamentoBestFit(iRoteamento):
 
     def rotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
-        informacoes_dos_datapaths, menor_janela = RoteamentoBestFit.retorna_informacoes_datapaths(requisicao, topology)
+        informacoes_dos_datapaths, menor_janela = RoteamentoBestFit.__retorna_informacoes_datapaths(requisicao, topology)
         if menor_janela != None:
             Registrador.incrementa_numero_requisicoes_aceitas()
-            RoteamentoBestFit.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env, menor_janela)
+            RoteamentoBestFit.__aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env, menor_janela)
             return True
         else:
             requisicao.bloqueia_requisicao( env.now)
@@ -30,10 +30,10 @@ class RoteamentoBestFit(iRoteamento):
     def rerotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
         requisicao.dados_pre_reroteamento = requisicao.retorna_tupla_chave_dicionario_dos_atributos()
-        informacoes_dos_datapaths, menor_janela = RoteamentoBestFit.retorna_informacoes_datapaths(requisicao, topology)
+        informacoes_dos_datapaths, menor_janela = RoteamentoBestFit.__retorna_informacoes_datapaths(requisicao, topology)
         if menor_janela != None:
             Registrador.incrementa_numero_requisicoes_reroteadas_aceitas()
-            RoteamentoBestFit.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env, menor_janela)
+            RoteamentoBestFit.__aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env, menor_janela)
             return True
         else:
             requisicao.bloqueia_requisicao( env.now)
@@ -42,14 +42,14 @@ class RoteamentoBestFit(iRoteamento):
             Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas()
             return False
 
-    def aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment, menor_janela: list[int, int]) -> None:
+    def __aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment, menor_janela: list[int, int]) -> None:
 
         for informacoes_datapath in informacoes_datapaths:
             if informacoes_datapath["melhor_janela_contigua"] == menor_janela:
-                RoteamentoBestFit.aloca_datapath(requisicao, topology, informacoes_datapath, env)
+                RoteamentoBestFit.__aloca_datapath(requisicao, topology, informacoes_datapath, env)
                 break
         
-    def aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict, env: Environment) -> None:
+    def __aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict, env: Environment) -> None:
         inicio = informacoes_datapath['melhor_janela_contigua'][0]
         fim = informacoes_datapath['melhor_janela_contigua'][0] + informacoes_datapath["numero_slots_necessarios"] - 1
         caminho = informacoes_datapath["caminho"]
@@ -62,7 +62,7 @@ class RoteamentoBestFit(iRoteamento):
         requisicao.aceita_requisicao(informacoes_datapath["numero_slots_necessarios"], caminho, len(caminho), [inicio, fim],
                                             env.now, env.now + requisicao.holding_time, informacoes_datapath["distancia"])
         
-    def retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
+    def __retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
 
         caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][ int(requisicao.dst)]
     
@@ -77,10 +77,10 @@ class RoteamentoBestFit(iRoteamento):
                 continue
             
             distancia = topology.distancia_caminho(caminho)
-            fator_de_modulacao = RoteamentoBestFit.fator_de_modulacao(distancia)
-            numero_slots_necessarios = RoteamentoBestFit.slots_nescessarios(distancia, requisicao.bandwidth)
+            fator_de_modulacao = RoteamentoBestFit.__fator_de_modulacao(distancia)
+            numero_slots_necessarios = RoteamentoBestFit.__slots_nescessarios(distancia, requisicao.bandwidth)
 
-            slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins = RoteamentoBestFit.informacoes_sobre_slots(caminho, topology)
+            slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins = RoteamentoBestFit.__informacoes_sobre_slots(caminho, topology)
 
             #identifica menor janela
             melhor_janela_contigua_caminho = None
@@ -113,25 +113,25 @@ class RoteamentoBestFit(iRoteamento):
 
         return lista_de_informacoes_datapath, menor_janela
         
-    def informacoes_sobre_slots( caminho, topology: 'Topologia') -> tuple[list[int], list[list[int]], list[tuple[int, int]]]:
+    def __informacoes_sobre_slots( caminho, topology: 'Topologia') -> tuple[list[int], list[list[int]], list[tuple[int, int]]]:
         
-        slots_livres = RoteamentoBestFit.retorna_slots_livres(caminho, topology)
+        slots_livres = RoteamentoBestFit.__retorna_slots_livres(caminho, topology)
         
-        slots_livres_agrupados = RoteamentoBestFit.agrupa_slots_consecutivos(slots_livres)
+        slots_livres_agrupados = RoteamentoBestFit.__agrupa_slots_consecutivos(slots_livres)
 
-        lista_de_inicios_e_fins = RoteamentoBestFit.retona_lista_de_inicios_e_fins(slots_livres_agrupados)
+        lista_de_inicios_e_fins = RoteamentoBestFit.__retona_lista_de_inicios_e_fins(slots_livres_agrupados)
 
         return slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins
         
-    def retorna_slots_livres( caminho, topology: 'Topologia') ->list:
+    def __retorna_slots_livres( caminho, topology: 'Topologia') ->list:
         
         slots_livres = []
         for i in range( topology.numero_de_slots):
-            if RoteamentoBestFit.checa_concurrency_slot(caminho, topology, i):
+            if RoteamentoBestFit.__checa_concurrency_slot(caminho, topology, i):
                 slots_livres.append(i)
         return slots_livres
     
-    def checa_concurrency_slot( caminho :list, topology: 'Topologia', indice: int) -> bool:
+    def __checa_concurrency_slot( caminho :list, topology: 'Topologia', indice: int) -> bool:
 
         for i in range(0, (len(caminho)-1)):
             
@@ -139,7 +139,7 @@ class RoteamentoBestFit(iRoteamento):
                 return False
         return True
     
-    def agrupa_slots_consecutivos( slots_livre: list[list]) -> list[list[int]]:
+    def __agrupa_slots_consecutivos( slots_livre: list[list]) -> list[list[int]]:
         slots_livres :list[list] = []
         for slot in slots_livre:
             if len(slots_livres) == 0:
@@ -151,13 +151,13 @@ class RoteamentoBestFit(iRoteamento):
                     slots_livres.append([slot])
         return slots_livres
     
-    def retona_lista_de_inicios_e_fins( slots_livres_agrupados: list[list]) -> list[tuple[int, int]]:
+    def __retona_lista_de_inicios_e_fins( slots_livres_agrupados: list[list]) -> list[tuple[int, int]]:
         lista_de_inicios_e_fins = []
         for slots in slots_livres_agrupados:
             lista_de_inicios_e_fins.append([slots[0], slots[-1]])
         return lista_de_inicios_e_fins
 
-    def slots_nescessarios(  distancia, demanda) -> int:
+    def __slots_nescessarios(  distancia, demanda) -> int:
         if distancia <= 500:
             return int(math.ceil(float(demanda) / float(4 * SLOT_SIZE)))
         elif 500 < distancia <= 1000:
@@ -167,7 +167,7 @@ class RoteamentoBestFit(iRoteamento):
         else:
             return int(math.ceil(float(demanda) / float(1 * SLOT_SIZE)))
    
-    def fator_de_modulacao(  distancia) -> float:
+    def __fator_de_modulacao(  distancia) -> float:
         if distancia <= 500:
             return (float(4 * SLOT_SIZE))
         elif 500 < distancia <= 1000:

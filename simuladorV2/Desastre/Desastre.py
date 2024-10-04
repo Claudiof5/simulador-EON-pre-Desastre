@@ -5,7 +5,7 @@ from Requisicao.Requisicao import Requisicao
 from Roteamento.iRoteamento import iRoteamento
 from Logger import Logger
 from Registrador import Registrador
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 if TYPE_CHECKING:
     from Simulador import Simulador
 class Desastre:
@@ -26,16 +26,16 @@ class Desastre:
         print("Links em falha: ", self.list_of_dict_link_per_start_time)
         
     def iniciar_desastre(self, simulador:'Simulador') -> None:
-        simulador.env.process(self.gerar_falhas(simulador))
+        simulador.env.process(self.__gerar_falhas(simulador))
 
         for isp in simulador.lista_de_ISPs:
             simulador.env.process(isp.iniciar_migracao(simulador))
 
-    def gerar_falhas(self, simulador:'Simulador'):
+    def __gerar_falhas(self, simulador:'Simulador') -> Generator:
         while True:
             for link_point in self.list_of_dict_link_per_start_time:
                 if link_point not in self.links_em_falha and  simulador.env.now >= link_point["start_time"] + self.start:
-                    self.FalhaNoLink(link_point['src'], link_point['dst'], simulador)
+                    self.__FalhaNoLink(link_point['src'], link_point['dst'], simulador)
                     self.links_em_falha.append(link_point)
 
                     Logger.mensagem_acompanha_link_desastre(link_point['src'], link_point['dst'], simulador.env.now)
@@ -43,7 +43,7 @@ class Desastre:
 
             for node_point in self.list_of_dict_node_per_start_time:
                 if node_point not in self.nodes_em_falha and  simulador.env.now >= node_point["start_time"] + self.start:
-                    self.FalhaNoNo(node_point['node'], simulador)
+                    self.__FalhaNoNo(node_point['node'], simulador)
                     self.nodes_em_falha.append(node_point)
                     
                     Logger.mensagem_acompanha_node_desastre(node_point['node'], simulador.env.now)
@@ -58,14 +58,14 @@ class Desastre:
                 break  
             yield  simulador.env.timeout(1) 
 
-    def FalhaNoLink(self, node1, node2, simulador:'Simulador'):
+    def __FalhaNoLink(self, node1, node2, simulador:'Simulador') -> None:
         topology = simulador.topology
         if topology.topology.has_edge(node1, node2) and not topology.topology[node1][node2]['failed']:
             
             topology.topology[node1][node2]['failed'] = True
             
 
-            requisicoes_falhas :list[Requisicao] = self.Quem_falhou_link(node1, node2, simulador)
+            requisicoes_falhas :list[Requisicao] = self.__Quem_falhou_link(node1, node2, simulador)
 
             
             for requisicao in requisicoes_falhas:
@@ -82,17 +82,17 @@ class Desastre:
                     roteador.rerotear_requisicao(requisicao, topology, simulador.env)
                     requisicao.afetada_por_desastre = True
 
-    def FalhaNoNo(self, node, simulador:'Simulador'):
+    def __FalhaNoNo(self, node, simulador:'Simulador') -> None:
         topology = simulador.topology.topology
         
         if node in topology.nodes:
 
             for neighbor in topology.neighbors(node):
                 
-               self.FalhaNoLink(node, neighbor, simulador)
+               self.__FalhaNoLink(node, neighbor, simulador)
 
 
-    def Quem_falhou_link(self, pontaa, pontab, simulador:'Simulador') -> list[Requisicao] :
+    def __Quem_falhou_link(self, pontaa, pontab, simulador:'Simulador') -> list[Requisicao] :
         requisicoes_ativas_que_falharam_no_link:list[Requisicao] = []
         requisicoes = Registrador.get_requisicoes()
 

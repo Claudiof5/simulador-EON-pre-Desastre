@@ -4,8 +4,8 @@ from Desastre.Desastre import Desastre
 from ISP.ISP import ISP
 class GeradorDeDesastre:
 
-
-    def generate_disaster(topology: nx.Graph, list_of_ISP: list[ISP]):
+    @staticmethod
+    def generate_disaster(topology: nx.Graph, list_of_ISP: list[ISP]) -> Desastre:
 
         list_of_ISP = [ISP.nodes for ISP in list_of_ISP]
         intersection = list(set( list_of_ISP[0]).intersection( *list_of_ISP[1:]))

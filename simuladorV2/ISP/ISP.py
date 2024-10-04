@@ -9,7 +9,7 @@ from Roteamento.RoteamentoDesastre import RoteamentoDesastre
 from Datacenter.Datacenter import Datacenter
 from Datacenter.GeradorDeDatacenter import GeradorDeDatacenter
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Generator
 if TYPE_CHECKING:
     from Simulador import Simulador
     from Desastre.Desastre import Desastre
@@ -26,10 +26,10 @@ class ISP:
         self.datacenter :Datacenter = None
 
 
-    def define_datacenter(self, disaster: 'Desastre', topology: nx.Graph, specific_values = None):
+    def define_datacenter(self, disaster: 'Desastre', topology: nx.Graph, specific_values = None) -> None:
         self.datacenter = GeradorDeDatacenter.gerar_datacenter(disaster, topology, self.nodes, specific_values)
 
-    def iniciar_migracao(self, simulador :'Simulador'):
+    def iniciar_migracao(self, simulador :'Simulador') -> Generator:
         while(True):
             if simulador.env.now >= self.datacenter.tempo_de_reacao:
                 self.roteamento = self.roteamento_desastre
@@ -37,10 +37,10 @@ class ISP:
                 break
             yield simulador.env.timeout(1)
     
-    def imprime_ISP(self):
+    def imprime_ISP(self) -> None:
         print("ID: ", self.id)
         print("Nós: ", self.nodes)
         print("Arestas: ", self.edges)
 
-    def troca_roteamento_desastre(self, roteamento: 'iRoteamento'):
+    def troca_roteamento_desastre(self, roteamento: 'iRoteamento') -> None:
         self.roteamento_desastre = roteamento

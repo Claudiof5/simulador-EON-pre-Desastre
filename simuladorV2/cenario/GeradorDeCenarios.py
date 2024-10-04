@@ -15,6 +15,7 @@ from copy import deepcopy
 
 class GeradorDeCenarios:
 
+    @staticmethod
     def gerar_cenario( 
             topology: nx.Graph, retornar_objetos: bool = False, retorna_lista_de_requisicoes: bool = False,
             numero_de_requisicoes: int = 0, roteamento_de_desastre: 'iRoteamento' = Roteamento 
@@ -35,7 +36,8 @@ class GeradorDeCenarios:
             return Cenario(topology, lista_de_ISPs, desastre, lista_de_requisicoes)
         else:
             return topology, lista_de_ISPs, desastre, lista_de_requisicoes
-        
+    
+    @staticmethod
     def gerar_cenarios( 
             topology: nx.Graph, retorna_lista_de_requisicoes: bool = False,
             numero_de_requisicoes: int = 0, lista_de_roteamentos_de_desastre: list['iRoteamento'] = [Roteamento] 

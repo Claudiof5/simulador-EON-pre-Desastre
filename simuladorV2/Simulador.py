@@ -21,7 +21,7 @@ class Simulador:
         self.inicia_atributos( topology, env, cenario )
         self.simulacao_finalizada = False
 
-    def inicia_atributos( self, topology: nx.Graph, env: simpy.Environment, cenario :Cenario = None ) ->None:
+    def inicia_atributos( self, topology: nx.Graph, env: simpy.Environment, cenario :Cenario = None ) -> None:
         if cenario == None:
             topology, lista_de_ISPs, desastre, lista_de_requisicoes = GeradorDeCenarios.gerar_cenario( topology, env )
         else:
@@ -33,7 +33,7 @@ class Simulador:
         self.topology: Topologia = topology
         self.lista_de_requisicoes: list[Requisicao] = lista_de_requisicoes
 
-    def run( self ):
+    def run( self ) -> None:
         self.env.process( self._run() )
         self.env.run()
 

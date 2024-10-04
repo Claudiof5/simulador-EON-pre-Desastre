@@ -8,39 +8,36 @@ from Roteamento.iRoteamento import iRoteamento
 class GeradorDeISPs:
 
     @staticmethod
-    def has_edge_with_any( G:nx.Graph, node, node_list):
+    def __has_edge_with_any( G:nx.Graph, node: int, node_list: list[int]) -> bool:
         return any(G.has_edge(node, other_node) for other_node in node_list)
 
     @staticmethod
-    def count_edges_with_any(G: nx.Graph, node, node_list):
+    def __count_edges_with_any(G: nx.Graph, node: int, node_list: list[int]) -> int:
         return sum(1 for other_node in node_list if G.has_edge(node, other_node))
 
     @staticmethod
-    def randomly_exclude_elements( topology: nx.Graph, elements, exclusion_rate, ISP_nodes):
+    def __randomly_exclude_elements( topology: nx.Graph, elements, exclusion_rate, ISP_nodes) -> list[int]:
         
         ISP_nodes :list  = ISP_nodes
         for element in elements:
-            number_of_edges_with_nodes = GeradorDeISPs.count_edges_with_any(topology, element, ISP_nodes)
+            number_of_edges_with_nodes = GeradorDeISPs.__count_edges_with_any(topology, element, ISP_nodes)
             if number_of_edges_with_nodes >= 1 and np.random.rand() > exclusion_rate-((number_of_edges_with_nodes-1)*0.1):
                 ISP_nodes.append(element)
 
-        return [element for element in elements if np.random.rand() > exclusion_rate and GeradorDeISPs.has_edge_with_any(topology, element, ISP_nodes) ]
+        return [element for element in elements if np.random.rand() > exclusion_rate and GeradorDeISPs.__has_edge_with_any(topology, element, ISP_nodes) ]
 
     @staticmethod
-    def edges_between_nodes(  G: nx.Graph, node_list:list):
-        # Create an empty list to store the edges
+    def __edges_between_nodes(  G: nx.Graph, node_list: list) -> list[tuple[ int, int]]:
         existing_edges = []
-        
-        # Iterate over all pairs of nodes in node_list
+
         for node1, node2 in combinations(node_list, 2):
-            # Check if an edge exists between node1 and node2
             if G.has_edge(node1, node2):
                 existing_edges.append((node1, node2))
         
         return existing_edges
     
     @staticmethod
-    def determine_interssection(  topology:nx.Graph, ISP_dict:dict):
+    def __determine_interssection(  topology: nx.Graph, ISP_dict: dict) -> dict[int, dict[str, list]]:
         node_intersec_dic = { x:[] for x in range(len(ISP_dict)+1)}
         edge_intersec_dic = { x:[] for x in range(len(ISP_dict)+1)}
 
@@ -65,6 +62,7 @@ class GeradorDeISPs:
         
         
         return returndict
+    
     @staticmethod
     def gerar_lista_ISPs_aleatorias( topology: nx.Graph, numero_de_ISPs: int, roteamento_de_desastre: 'iRoteamento') -> list[ISP]:
         
@@ -86,15 +84,15 @@ class GeradorDeISPs:
                 ISP_nodes.extend(nodes_from_each_distance[1])
                 ISP_nodes.extend(nodes_from_each_distance[2])
 
-                aux = GeradorDeISPs.randomly_exclude_elements( topology, nodes_from_each_distance[3], 0.70, ISP_nodes )
+                aux = GeradorDeISPs.__randomly_exclude_elements( topology, nodes_from_each_distance[3], 0.70, ISP_nodes )
                 
                 ISP_nodes.extend(aux)
 
-                ISP_edges = GeradorDeISPs.edges_between_nodes(topology, ISP_nodes)
+                ISP_edges = GeradorDeISPs.__edges_between_nodes(topology, ISP_nodes)
 
                 ISPS_dict[i] = ({"nodes": ISP_nodes, "edges": ISP_edges})
 
-            intercessoes = GeradorDeISPs.determine_interssection(topology, ISPS_dict)
+            intercessoes = GeradorDeISPs.__determine_interssection(topology, ISPS_dict)
             if len(intercessoes[numero_de_ISPs]["nodes"]) > 0 and len(intercessoes[0]["nodes"]) == 0 :
                 break
         

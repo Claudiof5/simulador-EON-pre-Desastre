@@ -10,8 +10,9 @@ class iRoteamento(ABC):
 
     
     @abstractmethod
-    def rotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia', env: Environment):
+    def rotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia', env: Environment) -> bool:
         pass
 
-    def rerotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia', env: Environment):
+    @abstractmethod
+    def rerotear_requisicao(self, requisicao: Requisicao, topology: 'Topologia', env: Environment) -> bool:
         pass

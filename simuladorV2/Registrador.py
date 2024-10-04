@@ -27,82 +27,101 @@ class Registrador:
     
         self.migracao_concluida: dict[tuple[float, float]] = {}
 
+    @staticmethod
     def get_intance() -> 'Registrador':
         if Registrador.instance == None:
             Registrador.instance = Registrador()
         return Registrador.instance
     
+    @staticmethod
     def reseta_registrador() -> None:
         Registrador.instance = Registrador()
 
+    @staticmethod
     def porcentagem_de_dados_enviados(isp_id: int, time: int, percentual: float) -> None:
         registrador: Registrador = Registrador.get_intance()
 
         registrador.migracao_concluida[isp_id] = (time, percentual)
 
+    @staticmethod
     def get_requisicoes() -> list[Requisicao]:
         registrador: Registrador = Registrador.get_intance()
         return registrador.requisicoes
     
+    @staticmethod
     def adiciona_numero_de_afetadas( numero_de_afetadas: int) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_afetadas_desastre += numero_de_afetadas
     
+    @staticmethod
     def adiciona_requisicao(requisicao: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.requisicoes.append(requisicao)
 
+    @staticmethod
     def conta_requisicao_banda(banda: int ) -> None:
 
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_por_banda[banda] += 1
 
+    @staticmethod
     def conta_requisicao_classe(classe: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_por_classe[classe] += 1
 
+    @staticmethod
     def conta_bloqueio_requisicao_banda( banda: int ) -> None:
 
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_bloqueadas_por_banda[banda] += 1
 
+    @staticmethod
     def conta_bloqueio_requisicao_classe( classe: int ) -> None:
 
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_bloqueadas_por_classe[classe] += 1
 
+    @staticmethod
     def conta_reroteadas_por_classe(classe: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_reroteadas_por_classe[classe] += 1
     
+    @staticmethod
     def conta_reroteadas_por_banda(banda: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_reroteadas_por_banda[banda] += 1
     
+    @staticmethod
     def conta_bloqueio_reroteadas_por_classe(classe: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_reroteadas_bloqueadas_por_classe[classe] += 1
 
+    @staticmethod
     def conta_bloqueio_reroteadas_por_banda(banda: int ) -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_reroteadas_bloqueadas_por_banda[banda] += 1
         
+    @staticmethod
     def incrementa_numero_requisicoes_aceitas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes +=1
 
+    @staticmethod
     def incrementa_numero_requisicoes_bloqueadas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_bloqueadas +=1
 
+    @staticmethod
     def incrementa_numero_requisicoes_reroteadas_aceitas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_reroteadas += 1
     
+    @staticmethod
     def incrementa_numero_requisicoes_reroteadas_bloqueadas() -> None:
         registrador: Registrador = Registrador.get_intance()
         registrador.numero_requisicoes_reroteadas_bloqueadas += 1
 
+    @staticmethod
     def printa_parametros() -> None:
         registrador: Registrador = Registrador.get_intance()
         print("Numero de requisicoes por classe: ", registrador.numero_requisicoes_por_classe)
@@ -120,6 +139,7 @@ class Registrador:
         print("Numero de requisicoes reroteadas bloqueadas: ", registrador.numero_requisicoes_reroteadas_bloqueadas)
         print("Momentos da migração concluída: ", registrador.migracao_concluida)
         
+    @staticmethod
     def criar_dataframe( nome: str) -> None:
         registrador: Registrador = Registrador.get_intance()
 
@@ -134,6 +154,7 @@ class Registrador:
         df.to_csv(f'_out/{nome}.csv')
         return df
     
+    @staticmethod
     def salva_resutados(self, nome):
         with open(f'_out/resultados/{nome}.json', 'w') as f:
             json.dump(self.__dict__, f, indent=4)

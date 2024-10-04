@@ -15,10 +15,10 @@ class Roteamento(iRoteamento):
 
     def rotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
-        informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.retorna_informacoes_datapaths(requisicao, topology)
+        informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.__retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
             Registrador.incrementa_numero_requisicoes_aceitas()
-            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
+            Roteamento.__aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
             return True
         else:
             requisicao.bloqueia_requisicao( env.now)
@@ -30,10 +30,10 @@ class Roteamento(iRoteamento):
     def rerotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
 
         requisicao.dados_pre_reroteamento = requisicao.retorna_tupla_chave_dicionario_dos_atributos()
-        informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.retorna_informacoes_datapaths(requisicao, topology)
+        informacoes_dos_datapaths, pelo_menos_uma_janela_habil = Roteamento.__retorna_informacoes_datapaths(requisicao, topology)
         if pelo_menos_uma_janela_habil:
             Registrador.incrementa_numero_requisicoes_reroteadas_aceitas()
-            Roteamento.aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
+            Roteamento.__aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
             return True
         else:
             requisicao.bloqueia_requisicao( env.now)
@@ -42,14 +42,14 @@ class Roteamento(iRoteamento):
             Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas()
             return False
 
-    def aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment) -> None:
+    def __aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment) -> None:
 
         for informacoes_datapath in informacoes_datapaths:
             if informacoes_datapath["maior_janela_contigua_continua"] >= informacoes_datapath["numero_slots_necessarios"]:
-                Roteamento.aloca_datapath(requisicao, topology, informacoes_datapath, env)
+                Roteamento.__aloca_datapath(requisicao, topology, informacoes_datapath, env)
                 break
         
-    def aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict, env: Environment) -> None:
+    def __aloca_datapath( requisicao: Requisicao, topology: 'Topologia', informacoes_datapath: dict, env: Environment) -> None:
         
         #janelas_possiveis = [ janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]]
         primeira_janela_disponivel = next( (janela for janela in informacoes_datapath["slots_livres_agrupados"] if len(janela) >= informacoes_datapath["numero_slots_necessarios"]), None)
@@ -66,7 +66,7 @@ class Roteamento(iRoteamento):
         requisicao.aceita_requisicao(informacoes_datapath["numero_slots_necessarios"], caminho, len(caminho), [inicio, fim],
                                             env.now, env.now + requisicao.holding_time, informacoes_datapath["distancia"])
         
-    def retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
+    def __retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
 
         caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][ int(requisicao.dst)]
     
@@ -78,10 +78,10 @@ class Roteamento(iRoteamento):
                 continue
             
             distancia = topology.distancia_caminho(caminho)
-            fator_de_modulacao = Roteamento.fator_de_modulacao(distancia)
-            numero_slots_necessarios = Roteamento.slots_nescessarios(distancia, requisicao.bandwidth)
+            fator_de_modulacao = Roteamento.__fator_de_modulacao(distancia)
+            numero_slots_necessarios = Roteamento.__slots_nescessarios(distancia, requisicao.bandwidth)
 
-            slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins = Roteamento.informacoes_sobre_slots(caminho, topology)
+            slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins = Roteamento.__informacoes_sobre_slots(caminho, topology)
 
             numero_de_slots_livres = len(slots_livres)
             
@@ -102,25 +102,25 @@ class Roteamento(iRoteamento):
 
         return lista_de_informacoes_datapath, pelo_menos_uma_janela_habil
         
-    def informacoes_sobre_slots( caminho, topology: 'Topologia') -> tuple[list[int], list[list[int]], list[tuple[int, int]]]:
+    def __informacoes_sobre_slots( caminho, topology: 'Topologia') -> tuple[list[int], list[list[int]], list[tuple[int, int]]]:
         
-        slots_livres = Roteamento.retorna_slots_livres(caminho, topology)
+        slots_livres = Roteamento.__retorna_slots_livres(caminho, topology)
         
-        slots_livres_agrupados = Roteamento.agrupa_slots_consecutivos(slots_livres)
+        slots_livres_agrupados = Roteamento.__agrupa_slots_consecutivos(slots_livres)
 
-        lista_de_inicios_e_fins = Roteamento.retona_lista_de_inicios_e_fins(slots_livres_agrupados)
+        lista_de_inicios_e_fins = Roteamento.__retona_lista_de_inicios_e_fins(slots_livres_agrupados)
 
         return slots_livres, slots_livres_agrupados, lista_de_inicios_e_fins
         
-    def retorna_slots_livres( caminho, topology: 'Topologia') ->list:
+    def __retorna_slots_livres( caminho, topology: 'Topologia') ->list:
         
         slots_livres = []
         for i in range( topology.numero_de_slots):
-            if Roteamento.checa_concurrency_slot(caminho, topology, i):
+            if Roteamento.__checa_concurrency_slot(caminho, topology, i):
                 slots_livres.append(i)
         return slots_livres
     
-    def checa_concurrency_slot( caminho :list, topology: 'Topologia', indice: int) -> bool:
+    def __checa_concurrency_slot( caminho :list, topology: 'Topologia', indice: int) -> bool:
 
         for i in range(0, (len(caminho)-1)):
             
@@ -128,7 +128,7 @@ class Roteamento(iRoteamento):
                 return False
         return True
     
-    def agrupa_slots_consecutivos( slots_livre: list[list]) -> list[list[int]]:
+    def __agrupa_slots_consecutivos( slots_livre: list[list]) -> list[list[int]]:
         slots_livres :list[list] = []
         for slot in slots_livre:
             if len(slots_livres) == 0:
@@ -140,13 +140,13 @@ class Roteamento(iRoteamento):
                     slots_livres.append([slot])
         return slots_livres
     
-    def retona_lista_de_inicios_e_fins( slots_livres_agrupados: list[list]) -> list[tuple[int, int]]:
+    def __retona_lista_de_inicios_e_fins( slots_livres_agrupados: list[list]) -> list[tuple[int, int]]:
         lista_de_inicios_e_fins = []
         for slots in slots_livres_agrupados:
             lista_de_inicios_e_fins.append([slots[0], slots[-1]])
         return lista_de_inicios_e_fins
 
-    def slots_nescessarios(  distancia, demanda) -> int:
+    def __slots_nescessarios(  distancia, demanda) -> int:
         if distancia <= 500:
             return int(math.ceil(float(demanda) / float(4 * SLOT_SIZE)))
         elif 500 < distancia <= 1000:
@@ -156,7 +156,7 @@ class Roteamento(iRoteamento):
         else:
             return int(math.ceil(float(demanda) / float(1 * SLOT_SIZE)))
    
-    def fator_de_modulacao(  distancia) -> float:
+    def __fator_de_modulacao(  distancia) -> float:
         if distancia <= 500:
             return (float(4 * SLOT_SIZE))
         elif 500 < distancia <= 1000:

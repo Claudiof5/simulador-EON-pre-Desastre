@@ -8,7 +8,7 @@ if TYPE_CHECKING:
 
 class GeradorDeTrafego:
     
-
+    @staticmethod
     def gerar_requisicao( topology: 'Topologia', id :int, specific_values :dict = None)-> Requisicao:
         
         if specific_values == None:
@@ -35,6 +35,7 @@ class GeradorDeTrafego:
 
         return Requisicao( str(id), src, dst, src_ISP, dst_ISP, bandwidth, class_type, holding_time, requisicao_de_migracao)
 
+    @staticmethod
     def gerar_lista_de_requisicoes( topology: 'Topologia', numero_de_requisicoes: int) -> list[Requisicao]:
         lista_de_requisicoes_nao_processadas: list[Requisicao] = []
         for i in range(1, numero_de_requisicoes + 1):
