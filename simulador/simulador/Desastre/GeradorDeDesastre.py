@@ -2,6 +2,8 @@ import numpy as np
 import networkx as nx
 from Desastre.Desastre import Desastre
 from ISP.ISP import ISP
+from Variaveis import *
+
 class GeradorDeDesastre:
 
     @staticmethod
@@ -20,19 +22,20 @@ class GeradorDeDesastre:
 
         random_edges = [edges[i] for i in random_index]
         
-        tempos = [ np.random.normal(1200, 90) for i in range( len(random_edges)+len(disaster_center))]
+        tempos = [ np.random.normal(INICIO_DESASTRE, VARIANCIA_INICIO_DESASTRE) for i in range( len(random_edges)+len(disaster_center))]
         min_value = min(tempos)
         tempos_finais = [ x - min_value for x in tempos]
-        duration = np.random.normal(600, 90)
+        duration = np.random.normal(DURACAO_DESASTRE, VARIANCIA_DURACAO_DESASTRE)
 
         NODE_POINTS = [ [element, tempos_finais[i]] for i, element in enumerate(disaster_center)]
         LINK_POINTS = [ [x, y, tempos_finais[i + len(disaster_center)]] for i, (x,y) in enumerate(random_edges)]
 
         SORTED_NODE_POINTS = sorted(NODE_POINTS, key=lambda x: int(x[1]))
-        list_of_dict_node_per_start_time = [ {"node":int(x[0]), "start_time":int(x[1])} for x in SORTED_NODE_POINTS]
+        list_of_dict_node_per_start_time = [ {"tipo":"node","node":int(x[0]), "start_time":int(x[1])} for x in SORTED_NODE_POINTS]
         SORTED_LINK_POINTS = sorted(LINK_POINTS, key=lambda x: int(x[2]))
-        list_of_dict_link_per_start_time = [ {"src":int(x[0]), "dst":int(x[1]), "start_time": int(x[2])} for x in SORTED_LINK_POINTS]
+        list_of_dict_link_per_start_time = [ {"tipo":"link","src":int(x[0]), "dst":int(x[1]), "start_time": int(x[2])} for x in SORTED_LINK_POINTS]
+        eventos = list_of_dict_node_per_start_time + list_of_dict_link_per_start_time
 
-
-        desastre = Desastre(min_value, duration, list_of_dict_node_per_start_time, list_of_dict_link_per_start_time)
+        eventos.sort(key=lambda x: x["start_time"])
+        desastre = Desastre(min_value, duration, list_of_dict_node_per_start_time, eventos)
         return desastre

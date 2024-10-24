@@ -36,6 +36,9 @@ class GeradorDeCenarios:
         if retorna_lista_de_requisicoes:
             lista_de_requisicoes = GeradorDeTrafego.gerar_lista_de_requisicoes( topologia, numero_de_requisicoes )
 
+            for isp in lista_de_ISPs:
+                GeradorDeTrafego.gerar_lista_de_requisicoes_datacenter( isp.datacenter, desastre, topologia, isp.id )
+
         if retornar_objetos:
             return Cenario(topologia, lista_de_ISPs, desastre, lista_de_requisicoes)
         else:

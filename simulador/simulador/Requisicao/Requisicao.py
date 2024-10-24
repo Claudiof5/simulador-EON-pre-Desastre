@@ -4,15 +4,15 @@ import simpy.events
 class Requisicao:
 
     def __init__(
-            self, id: str, src: int, dst: int, src_ISP: int, dst_ISP: int, bandwidth: int, class_type: int,
+            self, id: str, src: int, dst: int, src_ISP_index: int, dst_ISP_index: int, bandwidth: int, class_type: int,
             holding_time: float, requisicao_de_migracao: bool = False 
               ) -> None:
         
         self.id: str = id
         self.src: int = src
         self.dst: int = dst
-        self.src_ISP_index: int = src_ISP
-        self.dst_ISP_index: int = dst_ISP
+        self.src_ISP_index: int = src_ISP_index
+        self.dst_ISP_index: int = dst_ISP_index
         self.bandwidth: int = bandwidth
         self.class_type: int = class_type
         self.holding_time: float = holding_time

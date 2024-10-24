@@ -31,12 +31,11 @@ class ISP:
         self.datacenter = GeradorDeDatacenter.gerar_datacenter(disaster, topology, self.nodes, specific_values)
 
     def iniciar_migracao(self, simulador :'Simulador') -> Generator:
-        while(True):
-            if simulador.env.now >= self.datacenter.tempo_de_reacao:
-                self.roteamento_atual = self.roteamento_desastre
-                self.datacenter.iniciar_migracao(simulador, self)
-                break
-            yield simulador.env.timeout(1)
+
+        yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
+        self.roteamento_atual = self.roteamento_desastre
+        self.datacenter.iniciar_migracao(simulador, self)
+
     
     def imprime_ISP(self) -> None:
         print("ID: ", self.id)

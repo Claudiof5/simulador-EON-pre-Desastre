@@ -3,6 +3,7 @@ from itertools import islice
 from ISP.ISP import ISP
 import simpy
 from typing import Generator
+from Variaveis import *
 
 class Topologia:
 
@@ -51,7 +52,15 @@ class Topologia:
                 self.caminhos_mais_curtos_entre_links[int(i)] = {}
                 for j in nodes:
                     if i != j:
-                        self.caminhos_mais_curtos_entre_links[int(i)][int(j)] = self.__k_shortest_paths(self.topology, i, j, numero_de_caminhos, weight='weight')
+                        caminhos_mais_curtos_entre_i_e_j = self.__k_shortest_paths(self.topology, i, j, numero_de_caminhos, weight='weight')
+                        informacoes_caminhos_mais_curtos_entre_i_e_j = []
+
+                        for caminho in caminhos_mais_curtos_entre_i_e_j:
+                            distancia = self.distancia_caminho(caminho)
+                            fator_de_modulacao = self.__fator_de_modulacao(distancia)
+                            informacoes_caminhos_mais_curtos_entre_i_e_j.append({"caminho": caminho, "distancia": distancia, "fator_de_modulacao": fator_de_modulacao})
+                            
+                        self.caminhos_mais_curtos_entre_links[int(i)][int(j)] = informacoes_caminhos_mais_curtos_entre_i_e_j
 
         
     def __k_shortest_paths(self, G, source, target, k, weight='weight') -> None:
@@ -89,3 +98,13 @@ class Topologia:
     
     def caminho_em_funcionamento(self, caminho) -> bool:
         return not any( self.topology[caminho[i]][caminho[i+1]]['failed'] for i in range(len(caminho)-1) )
+    
+    def __fator_de_modulacao(  self, distancia) -> float:
+        if distancia <= 500:
+            return (float(4 * SLOT_SIZE))
+        elif 500 < distancia <= 1000:
+            return (float(3 * SLOT_SIZE))
+        elif 1000 < distancia <= 2000:
+            return (float(2 * SLOT_SIZE)) 
+        else:
+            return (float(1 * SLOT_SIZE))

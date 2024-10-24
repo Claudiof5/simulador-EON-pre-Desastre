@@ -14,12 +14,11 @@ from Logger import Logger
 from Cenario.GeradorDeCenarios import GeradorDeCenarios
 from Cenario.Cenario import Cenario
 from Registrador import Registrador
-from copy import deepcopy
-import pickle
+
 
 class Simulador:
 
-    def __init__(self, env: simpy.Environment, topology: nx.Graph, status_logger: bool = False, cenario:Cenario = None ) -> None:
+    def __init__(self, env: simpy.Environment, topology: nx.Graph, status_logger: bool = False, cenario: Cenario = None ) -> None:
         Logger(status_logger)
         self.inicia_atributos( topology, env, cenario )
         self.simulacao_finalizada = False
@@ -43,27 +42,47 @@ class Simulador:
     def _run( self) -> Generator:
         self.desastre.iniciar_desastre( self )
         
-        numero_de_iteracoes = len(self.lista_de_requisicoes) if self.lista_de_requisicoes != None else NUMERO_DE_REQUISICOES 
-        for req_id in range( 1, numero_de_iteracoes + 1 ):
-            
-            yield self.env.timeout(random.expovariate( REQUISICOES_POR_SEGUNDO ) )
-            requisicao: Requisicao = self.pegar_requisicao( self.topology, req_id )
-            Registrador.adiciona_requisicao( requisicao )
-            id_ISP_origem = requisicao.src_ISP_index
-            roteador: iRoteamento = self.lista_de_ISPs[id_ISP_origem].roteamento_atual
-            roteador.rotear_requisicao( requisicao, self.topology, self.env )
-            Logger.mensagem_acompanha_requisicoes( req_id, self.env.now, 10000 )
+        numero_de_requisicao = len(self.lista_de_requisicoes) if self.lista_de_requisicoes != None else NUMERO_DE_REQUISICOES 
+        for index_requisicao in range( 1, numero_de_requisicao + 1 ):
+
+            yield from self.cria_e_roteia_requisicao( index_requisicao )
 
         self.simulacao_finalizada = True
+
+    def cria_e_roteia_requisicao(self, index_requisicao) -> Generator:
+        requisicao: Requisicao = self.pegar_requisicao( self.topology, index_requisicao )
+        yield self.espera_requisicao( requisicao )
+        self.roteia_requisicao( requisicao )
+
+        Logger.mensagem_acompanha_requisicoes( index_requisicao, self.env.now, 10000 )
+
+    def espera_requisicao(self, requisicao: Requisicao) -> simpy.events.Event:
+        if self.lista_de_requisicoes:
+            return self.env.timeout( requisicao.tempo_criacao - self.env.now )
+        else:
+            return self.env.timeout(random.expovariate( REQUISICOES_POR_SEGUNDO ) )
 
     def pegar_requisicao(self, topology: Topologia, req_id: int) -> Requisicao:
         
         if self.lista_de_requisicoes:
-            return self.lista_de_requisicoes.pop(0)
+            requisicao = self.lista_de_requisicoes.pop(0)
+            Registrador.adiciona_requisicao( requisicao )
+            return requisicao
         else:
-            return GeradorDeTrafego.gerar_requisicao( topology, req_id )
+            requisicao = GeradorDeTrafego.gerar_requisicao( topology, req_id )
+            Registrador.adiciona_requisicao( requisicao )
+            return requisicao
     
+    def pega_roteador(self, requisicao: Requisicao) -> iRoteamento:
+        return self.lista_de_ISPs[ requisicao.src_ISP_index ].roteamento_atual
+    
+    def roteia_requisicao(self, requisicao: Requisicao ) -> None:
+        
+        roteador: iRoteamento = self.pega_roteador( requisicao )
+
+        roteador.rotear_requisicao( requisicao, self.topology, self.env )
+
     def salvar_dataframe( self, nome: str ) -> None:
         return Registrador.criar_dataframe( nome )
     
-
+    
