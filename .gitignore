@@ -1,3 +1,2 @@
-simulador/simulador/Cenario/cenarios/*
-
-simulador/simulador/_out/resultados/*
+/simulador/simulador/Cenario/cenarios/
+/simulador/simulador/_out/resultados/
