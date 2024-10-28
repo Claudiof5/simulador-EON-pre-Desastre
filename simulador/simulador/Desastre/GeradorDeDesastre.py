@@ -12,6 +12,7 @@ class GeradorDeDesastre:
         list_of_ISP = [ISP.nodes for ISP in list_of_ISP]
         intersection = list(set( list_of_ISP[0]).intersection( *list_of_ISP[1:]))
 
+        
         disaster_center = np.random.choice(intersection, 1)
         disaster_center = [ int(num) for num in disaster_center]
         edges = list(topology.edges(disaster_center))
@@ -37,5 +38,5 @@ class GeradorDeDesastre:
         eventos = list_of_dict_node_per_start_time + list_of_dict_link_per_start_time
 
         eventos.sort(key=lambda x: x["start_time"])
-        desastre = Desastre(min_value, duration, list_of_dict_node_per_start_time, eventos)
+        desastre = Desastre(min_value, duration, list_of_dict_node_per_start_time, list_of_dict_link_per_start_time, eventos)
         return desastre

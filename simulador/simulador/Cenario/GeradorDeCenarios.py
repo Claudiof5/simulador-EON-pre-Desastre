@@ -23,8 +23,11 @@ class GeradorDeCenarios:
         
         datacenter_destinations = ()
         while len(datacenter_destinations) < NUMERO_DE_ISPS:
-            lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology=topology, numero_de_ISPs=NUMERO_DE_ISPS , roteamento_de_desastre=roteamento_de_desastre)
-            desastre      :Desastre  = GeradorDeDesastre.generate_disaster( topology, lista_de_ISPs )
+            desastre = None
+            while desastre is None or desastre.list_of_dict_node_per_start_time[0]['node'] != 9:
+                lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology=topology, numero_de_ISPs=NUMERO_DE_ISPS , roteamento_de_desastre=roteamento_de_desastre)
+                desastre      :Desastre  = GeradorDeDesastre.generate_disaster( topology, lista_de_ISPs )
+                print(desastre.list_of_dict_node_per_start_time[0]['node'])
 
             topologia      :Topologia = Topologia( topology, lista_de_ISPs, NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS )
             lista_de_requisicoes : list[Requisicao] = None

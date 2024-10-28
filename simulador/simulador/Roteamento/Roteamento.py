@@ -10,7 +10,8 @@ if TYPE_CHECKING:
     from Topology.Topologia import Topologia
 
 class Roteamento(iRoteamento):
-
+    
+    @classmethod
     def __str__ (cls) -> str:
         return "Roteamento first fit"
 
@@ -48,9 +49,9 @@ class Roteamento(iRoteamento):
         if pelo_menos_uma_janela_habil:
             Roteamento.__aloca_requisicao(requisicao, topology, informacoes_dos_datapaths, env)
             return True
-        else:
-            requisicao.bloqueia_requisicao( env.now)
-            return False  
+    
+        requisicao.bloqueia_requisicao( env.now)
+        return False  
 
     def __aloca_requisicao( requisicao: Requisicao, topology: 'Topologia', informacoes_datapaths: dict, env: Environment) -> None:
 

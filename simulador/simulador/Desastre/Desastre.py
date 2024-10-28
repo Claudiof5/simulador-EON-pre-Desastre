@@ -11,11 +11,12 @@ if TYPE_CHECKING:
     
 class Desastre:
 
-    def __init__(self, start, duration, list_of_dict_node_per_start_time, eventos) -> None:
+    def __init__(self, start, duration, list_of_dict_node_per_start_time, list_of_dict_link_per_start_time, eventos) -> None:
         self.start = start
         self.duration = duration
         self.eventos_nao_iniciados: list[dict] = eventos
         self.list_of_dict_node_per_start_time = list_of_dict_node_per_start_time
+        self.list_of_dict_link_per_start_time = list_of_dict_link_per_start_time
         
     def imprime_desastre(self) -> None:
         print("Início do desastre: ", self.start)
