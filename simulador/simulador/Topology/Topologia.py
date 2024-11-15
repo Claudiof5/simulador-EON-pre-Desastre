@@ -5,6 +5,11 @@ import simpy
 from typing import Generator
 from Variaveis import *
 
+
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from Desastre.Desastre import Desastre  
+
 class Topologia:
 
 
@@ -12,7 +17,7 @@ class Topologia:
         self.topology: nx.Graph = topology
         self.numero_de_slots = numero_de_slots
         self.caminhos_mais_curtos_entre_links = {}
-
+        self.desastre: 'Desastre' = None
         self.__inicia_topologia(list_of_ISP, numero_de_caminhos, numero_de_slots)
 
     def imprime_topologia(self) -> None:
@@ -30,6 +35,7 @@ class Topologia:
         for edge in self.topology.edges():
             self.topology[edge[0]][edge[1]]["slots"] = [0] * numero_de_slots
             self.topology[edge[0]][edge[1]]["failed"] = False
+            self.topology[edge[0]][edge[1]]['vai falhar'] = False
 
     def __inicia_lista_de_ISPs_por_link_e_node( self, list_of_ISP: list[ISP]) -> None:
 
@@ -98,6 +104,10 @@ class Topologia:
     
     def caminho_em_funcionamento(self, caminho) -> bool:
         return not any( self.topology[caminho[i]][caminho[i+1]]['failed'] for i in range(len(caminho)-1) )
+    
+    def pode_passar_pelo_caminho_que_vai_falhar(self, caminho) -> bool:
+        caminho_inicia_ou_termina_no_node_desastre = caminho[0] == self.desastre.list_of_dict_node_per_start_time[0]['node'] or caminho[-1] == self.desastre.list_of_dict_node_per_start_time[0]['node']
+        return (not any( self.topology[caminho[i]][caminho[i+1]]['vai falhar'] for i in range(len(caminho)-1) ) or caminho_inicia_ou_termina_no_node_desastre)
     
     def __fator_de_modulacao(  self, distancia) -> float:
         if distancia <= 500:

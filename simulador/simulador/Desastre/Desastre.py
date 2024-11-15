@@ -24,10 +24,22 @@ class Desastre:
         print("Eventos: ", self.eventos_nao_iniciados)
         
     def iniciar_desastre(self, simulador:'Simulador') -> None:
+        self.seta_links_como_prestes_a_falhar(simulador)
         simulador.env.process(self.__gerar_falhas(simulador))
 
         for isp in simulador.lista_de_ISPs:
             simulador.env.process(isp.iniciar_migracao(simulador))
+
+    def seta_links_como_prestes_a_falhar(self, simulador:'Simulador') -> None:
+        for dict_link in self.list_of_dict_link_per_start_time:
+            src = dict_link['src']
+            dst = dict_link['dst']
+            simulador.topology.topology[src][dst]['vai falhar'] = True
+        
+        for dict_node in self.list_of_dict_node_per_start_time:
+            node = dict_node['node']
+            for neighbor in simulador.topology.topology.neighbors(node):
+                simulador.topology.topology[node][neighbor]['vai falhar'] = True
 
     def __gerar_falhas(self, simulador:'Simulador') -> Generator:
 
@@ -37,6 +49,7 @@ class Desastre:
             evento = self.eventos_nao_iniciados.pop(0)
             self.__ativa_evento(evento, simulador)
             simulador.env.process(self.__desativa_evento(evento, simulador))
+            
         yield simulador.env.timeout( self.start + self.duration - simulador.env.now )
         Logger.mensagem_desastre_finalizado(simulador.env.now)
     
@@ -61,12 +74,13 @@ class Desastre:
         elif informacoes_evento['tipo'] == "link":
             self.__restaura_link(informacoes_evento, simulador)
             Logger.mensagem_acompanha_link_desastre(informacoes_evento['src'], informacoes_evento['dst'], simulador.env.now)
-    
+            
     def __restaura_link(self, informacoes_evento: dict, simulador: 'Simulador') -> None:
         src = informacoes_evento['src']
         dst = informacoes_evento['dst']
         if simulador.topology.topology.has_edge(src, dst) and simulador.topology.topology[src][dst]['failed']:
             simulador.topology.topology[src][dst]['failed'] = False
+            simulador.topology.topology[src][dst]['vai falhar'] = False
     
     def __restaura_no(self, informacoes_evento, simulador: 'Simulador') -> None:
         node = informacoes_evento['node']
