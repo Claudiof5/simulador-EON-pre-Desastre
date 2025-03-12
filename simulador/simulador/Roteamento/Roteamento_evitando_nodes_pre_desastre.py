@@ -78,9 +78,12 @@ class Roteamento_evitando_nodes_pre_desastre(iRoteamento):
         
     def __retorna_informacoes_datapaths( requisicao: Requisicao, topology: 'Topologia') -> tuple[list[dict], bool]:
 
-        caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][ int(requisicao.dst)]
-    
-
+        if (requisicao.dst in topology.caminhos_mais_curtos_entre_links_durante_desastre.keys() and
+                requisicao.src in topology.caminhos_mais_curtos_entre_links_durante_desastre.keys()):
+            caminhos = topology.caminhos_mais_curtos_entre_links_durante_desastre[int(requisicao.src)][ int(requisicao.dst)]
+        else:
+            caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][ int(requisicao.dst)]
+        
         lista_de_informacoes_datapath = []
         pelo_menos_uma_janela_habil = False
         

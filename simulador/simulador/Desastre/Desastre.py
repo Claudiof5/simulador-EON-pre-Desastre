@@ -8,6 +8,7 @@ from Registrador import Registrador
 from typing import TYPE_CHECKING, Generator
 if TYPE_CHECKING:
     from Simulador import Simulador
+    from Topology.Topologia import Topologia
     
 class Desastre:
 
@@ -24,22 +25,23 @@ class Desastre:
         print("Eventos: ", self.eventos_nao_iniciados)
         
     def iniciar_desastre(self, simulador:'Simulador') -> None:
-        self.seta_links_como_prestes_a_falhar(simulador)
         simulador.env.process(self.__gerar_falhas(simulador))
 
         for isp in simulador.lista_de_ISPs:
             simulador.env.process(isp.iniciar_migracao(simulador))
 
-    def seta_links_como_prestes_a_falhar(self, simulador:'Simulador') -> None:
+    def seta_links_como_prestes_a_falhar(self, topology:'Topologia') -> None:
         for dict_link in self.list_of_dict_link_per_start_time:
             src = dict_link['src']
             dst = dict_link['dst']
-            simulador.topology.topology[src][dst]['vai falhar'] = True
+            topology.topology[src][dst]['vai falhar'] = True
+            print("Link ", src, dst, " vai falhar")
         
         for dict_node in self.list_of_dict_node_per_start_time:
             node = dict_node['node']
-            for neighbor in simulador.topology.topology.neighbors(node):
-                simulador.topology.topology[node][neighbor]['vai falhar'] = True
+            for neighbor in topology.topology.neighbors(node):
+                topology.topology[node][neighbor]['vai falhar'] = True  
+                print("Link ", node, neighbor, " vai falhar")
 
     def __gerar_falhas(self, simulador:'Simulador') -> Generator:
 

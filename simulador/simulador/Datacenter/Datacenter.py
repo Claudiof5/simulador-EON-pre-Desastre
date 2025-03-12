@@ -54,21 +54,19 @@ class Datacenter:
 
     def gerar_requisicao(self, id:int, topologia: 'Topologia', isp_id: int) -> Requisicao:
         
-            class_type = choice(CLASS_TYPE, p=CLASS_WEIGHT)
-            bandwidth = choice(BANDWIDTH)
-            holding_time = expovariate(HOLDING_TIME)
-            dict_values = {"src": int(self.source), "dst": int(self.destination), "src_ISP": int(isp_id), "dst_ISP": int(isp_id), "bandwidth": int(bandwidth),
-                            "holding_time": int(holding_time), "class_type": int(class_type), "requisicao_de_migracao": True}
+
+            dict_values = {"src": int(self.source), "dst": int(self.destination), "src_ISP": int(isp_id), "dst_ISP": int(isp_id),
+                        "requisicao_de_migracao": True}
          
             requisicao: Requisicao = GeradorDeTrafego.gerar_requisicao(topologia, f"{isp_id}.{id}", dict_values)
-            requisicao.requisicao_de_migracao == True
+
             return requisicao
     
     def pega_requisicao(self, id:int, topologia: 'Topologia', isp_id: int) -> Requisicao:
          
-         if self.lista_de_requisicoes:
+        if self.lista_de_requisicoes:
             return self.lista_de_requisicoes.pop(0)
-         else:
+        else:
             return self.gerar_requisicao(id, topologia, isp_id)
          
     def espera_requisicao(self, requisicao: Requisicao, env: simpy.Environment, taxa_mensagens: float) -> Generator:

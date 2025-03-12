@@ -35,6 +35,8 @@ class ISP:
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
         self.roteamento_atual = self.roteamento_desastre
         self.datacenter.iniciar_migracao(simulador, self)
+        yield simulador.env.timeout(( simulador.desastre.start + simulador.desastre.duration )- simulador.env.now)
+        self.roteamento_atual = self.roteamento_primario
 
     
     def imprime_ISP(self) -> None:

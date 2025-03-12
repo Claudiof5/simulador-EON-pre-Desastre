@@ -23,10 +23,13 @@ class GeradorDeDesastre:
 
         random_edges = [edges[i] for i in random_index]
         
-        tempos = [ np.random.normal(INICIO_DESASTRE, VARIANCIA_INICIO_DESASTRE) for i in range( len(random_edges)+len(disaster_center))]
+        tempos = [ np.random.normal(INICIO_DESASTRE, VARIANCIA_INICIO_DESASTRE) for _ in range( len(random_edges)+len(disaster_center))]
         min_value = min(tempos)
+        max_value = max(tempos)
         tempos_finais = [ x - min_value for x in tempos]
-        duration = np.random.normal(DURACAO_DESASTRE, VARIANCIA_DURACAO_DESASTRE)
+
+        duration = max(np.random.normal(DURACAO_DESASTRE, VARIANCIA_DURACAO_DESASTRE), max_value - min_value)
+
 
         NODE_POINTS = [ [element, tempos_finais[i]] for i, element in enumerate(disaster_center)]
         LINK_POINTS = [ [x, y, tempos_finais[i + len(disaster_center)]] for i, (x,y) in enumerate(random_edges)]

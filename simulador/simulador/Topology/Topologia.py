@@ -17,6 +17,7 @@ class Topologia:
         self.topology: nx.Graph = topology
         self.numero_de_slots = numero_de_slots
         self.caminhos_mais_curtos_entre_links = {}
+        self.caminhos_mais_curtos_entre_links_durante_desastre = {}
         self.desastre: 'Desastre' = None
         self.__inicia_topologia(list_of_ISP, numero_de_caminhos, numero_de_slots)
 
@@ -53,23 +54,53 @@ class Topologia:
                 self.topology[edge[0]][edge[1]]["ISPs"].append(isp.id)
 
     def __inicia_caminhos_mais_curtos(self, numero_de_caminhos: int) -> None:
-        nodes = list(self.topology.nodes())
-        for i in nodes:
-                self.caminhos_mais_curtos_entre_links[int(i)] = {}
-                for j in nodes:
-                    if i != j:
-                        caminhos_mais_curtos_entre_i_e_j = self.__k_shortest_paths(self.topology, i, j, numero_de_caminhos, weight='weight')
-                        informacoes_caminhos_mais_curtos_entre_i_e_j = []
 
-                        for caminho in caminhos_mais_curtos_entre_i_e_j:
-                            distancia = self.distancia_caminho(caminho)
-                            fator_de_modulacao = self.__fator_de_modulacao(distancia)
-                            informacoes_caminhos_mais_curtos_entre_i_e_j.append({"caminho": caminho, "distancia": distancia, "fator_de_modulacao": fator_de_modulacao})
-                            
-                        self.caminhos_mais_curtos_entre_links[int(i)][int(j)] = informacoes_caminhos_mais_curtos_entre_i_e_j
+        for node1 in self.topology.nodes():
+                self.caminhos_mais_curtos_entre_links[int(node1)] = {}
 
+                for node2 in self.topology.nodes():
+
+                    if node1 == node2:
+                        continue
+
+                    caminhos_mais_curtos_entre_i_e_j = self.__k_shortest_paths(self.topology, node1, node2, numero_de_caminhos, weight='weight')
+                    informacoes_caminhos_mais_curtos_entre_i_e_j = []
+
+                    for caminho in caminhos_mais_curtos_entre_i_e_j:
+                        distancia = self.distancia_caminho(caminho)
+                        fator_de_modulacao = self.__fator_de_modulacao(distancia)
+                        informacoes_caminhos_mais_curtos_entre_i_e_j.append({"caminho": caminho, "distancia": distancia, "fator_de_modulacao": fator_de_modulacao})
+                    
+                    self.caminhos_mais_curtos_entre_links[int(node1)][int(node2)] = informacoes_caminhos_mais_curtos_entre_i_e_j
+
+    def inicia_caminhos_mais_curtos_durante_desastre(self, numero_de_caminhos: int) -> None:
+
+        topologia_desastre = nx.Graph()
+        for edge in self.topology.edges():
+            if self.topology[edge[0]][edge[1]]['vai falhar']:
+                continue
+            u, v = edge
+            attributes = self.topology[u][v]
+            topologia_desastre.add_edge(u, v, **attributes)
+
+        for node1 in topologia_desastre.nodes():
+            self.caminhos_mais_curtos_entre_links_durante_desastre[int(node1)] = {}
+            for node2 in topologia_desastre.nodes():
+
+                if node1 == node2:
+                    continue
+                caminhos_mais_curtos_entre_i_e_j_desastre = self.__k_shortest_paths(topologia_desastre, node1, node2, numero_de_caminhos, weight='weight')
+                informacoes_caminhos_mais_curtos_entre_i_e_j_desastre = []
+
+                for caminho in caminhos_mais_curtos_entre_i_e_j_desastre:
+                    distancia = self.distancia_caminho(caminho)
+                    fator_de_modulacao = self.__fator_de_modulacao(distancia)
+                    informacoes_caminhos_mais_curtos_entre_i_e_j_desastre.append({"caminho": caminho, "distancia": distancia, "fator_de_modulacao": fator_de_modulacao})
+                
+                self.caminhos_mais_curtos_entre_links_durante_desastre[int(node1)][int(node2)] = informacoes_caminhos_mais_curtos_entre_i_e_j_desastre
+                    
         
-    def __k_shortest_paths(self, G, source, target, k, weight='weight') -> None:
+    def __k_shortest_paths(self, G: nx.Graph, source, target, k, weight='weight') -> None:
         return list(islice(nx.shortest_simple_paths(G, source, target, weight=weight), k))
     
     def desalocate(self, path, spectro) -> None:
@@ -84,7 +115,6 @@ class Topologia:
 
         except simpy.Interrupt as interrupt:
             self.desalocate( path, spectro)
-
 
     def aloca_janela(self, path, spectro)  -> None:
         inicio = spectro[0]

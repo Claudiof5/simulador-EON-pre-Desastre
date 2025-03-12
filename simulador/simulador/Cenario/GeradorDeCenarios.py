@@ -22,12 +22,12 @@ class GeradorDeCenarios:
                         ) -> tuple[Topologia, list[ISP], Desastre, list[Requisicao]] | Cenario:
         
         datacenter_destinations = ()
+        #garante que os datacenters pra migração não estão no mesmo lugar
         while len(datacenter_destinations) < NUMERO_DE_ISPS:
             desastre = None
             while desastre is None or desastre.list_of_dict_node_per_start_time[0]['node'] != 9:
                 lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology=topology, numero_de_ISPs=NUMERO_DE_ISPS , roteamento_de_desastre=roteamento_de_desastre)
                 desastre      :Desastre  = GeradorDeDesastre.generate_disaster( topology, lista_de_ISPs )
-                print(desastre.list_of_dict_node_per_start_time[0]['node'])
 
             topologia      :Topologia = Topologia( topology, lista_de_ISPs, NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS )
             lista_de_requisicoes : list[Requisicao] = None
@@ -35,13 +35,18 @@ class GeradorDeCenarios:
             for isp in lista_de_ISPs:
                 isp.define_datacenter( desastre, topologia.topology )
             datacenter_destinations = set( isp.datacenter.destination for isp in lista_de_ISPs )
+            print("-",end="")
+        
+        topologia.desastre = desastre
+        desastre.seta_links_como_prestes_a_falhar( topologia )
+        topologia.inicia_caminhos_mais_curtos_durante_desastre(NUMERO_DE_CAMINHOS)
 
         if retorna_lista_de_requisicoes:
             lista_de_requisicoes = GeradorDeTrafego.gerar_lista_de_requisicoes( topologia, numero_de_requisicoes )
 
             for isp in lista_de_ISPs:
                 GeradorDeTrafego.gerar_lista_de_requisicoes_datacenter( isp.datacenter, desastre, topologia, isp.id )
-        topologia.desastre = desastre
+        
         if retornar_objetos:
             return Cenario(topologia, lista_de_ISPs, desastre, lista_de_requisicoes)
         else:
