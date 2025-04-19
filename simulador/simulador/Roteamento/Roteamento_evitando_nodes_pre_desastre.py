@@ -19,12 +19,10 @@ class Roteamento_evitando_nodes_pre_desastre(iRoteamento):
         
         requisicao_roteada_com_sucesso = Roteamento_evitando_nodes_pre_desastre.__rotear_requisicao(requisicao, topology, env)
         if requisicao_roteada_com_sucesso:
-            Registrador.incrementa_numero_requisicoes_aceitas()
+            Registrador.incrementa_numero_requisicoes_aceitas(requisicao, env)
             return True
         else:
-            Registrador.conta_bloqueio_requisicao_banda(requisicao.bandwidth)
-            Registrador.conta_bloqueio_requisicao_classe(requisicao.class_type)
-            Registrador.incrementa_numero_requisicoes_bloqueadas()
+            Registrador.incrementa_numero_requisicoes_bloqueadas(requisicao, env)
             return False
 
     def rerotear_requisicao( requisicao: Requisicao, topology: 'Topologia', env: Environment ) -> bool:
@@ -34,12 +32,10 @@ class Roteamento_evitando_nodes_pre_desastre(iRoteamento):
         requisicao_roteada_com_sucesso = Roteamento_evitando_nodes_pre_desastre.__rotear_requisicao(requisicao, topology, env)
 
         if requisicao_roteada_com_sucesso:
-            Registrador.incrementa_numero_requisicoes_reroteadas_aceitas()
+            Registrador.incrementa_numero_requisicoes_reroteadas_aceitas(requisicao, env)
             return True
         else:
-            Registrador.conta_bloqueio_reroteadas_por_banda(requisicao.bandwidth)
-            Registrador.conta_bloqueio_reroteadas_por_classe(requisicao.class_type)
-            Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas()
+            Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas(requisicao, env)
             return False
 
 

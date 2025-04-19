@@ -14,10 +14,10 @@ if TYPE_CHECKING:
 class GeradorDeTrafego:
     
     @staticmethod
-    def gerar_requisicao( topology: 'Topologia', id :int, specific_values :dict = None)-> Requisicao:
+    def gerar_requisicao( topology: 'Topologia', id :int, specific_values :dict = {})-> Requisicao:
         
 
-        if specific_values == None:
+        if specific_values == {}:
             class_type = choice(CLASS_TYPE, p=CLASS_WEIGHT)
             src, dst = choice(topology.topology.nodes, 2, replace=False)
             src_ISP = choice( topology.topology.nodes[src]["ISPs"])
@@ -35,6 +35,9 @@ class GeradorDeTrafego:
             elif specific_values.get("dst") == None:
                 src = specific_values["src"]
                 dst = choice(topology.topology.nodes)
+            else:
+                src = specific_values["src"]
+                dst = specific_values["dst"]
                 
             if specific_values.get("src_ISP") == None:
                 src_ISP = choice( topology.topology.nodes[src]["ISPs"])

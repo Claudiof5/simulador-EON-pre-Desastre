@@ -102,9 +102,7 @@ class Desastre:
             
             for requisicao in requisicoes_falhas:
                 if requisicao.afetada_por_desastre == False:
-                    Registrador.conta_reroteadas_por_banda(requisicao.bandwidth)
-                    Registrador.conta_reroteadas_por_classe(requisicao.class_type)
-                    Registrador.adiciona_numero_de_afetadas(1)
+                    Registrador.registra_requisicao_afetada(requisicao)
 
                     requisicao.processo_de_desalocacao.interrupt()
                     index_isp = requisicao.src_ISP_index

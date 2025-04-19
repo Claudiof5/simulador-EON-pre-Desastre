@@ -41,12 +41,13 @@ class Simulador:
 
     def _run( self) -> Generator:
         self.desastre.iniciar_desastre( self )
-        
+        self.env.process( Registrador.inicia_registro_janela_deslizante(self.env) )
         numero_de_requisicao = len(self.lista_de_requisicoes) if self.lista_de_requisicoes != None else NUMERO_DE_REQUISICOES 
         for index_requisicao in range( 1, numero_de_requisicao + 1 ):
 
             yield from self.cria_e_roteia_requisicao( index_requisicao )
 
+        Registrador.finaliza_registro_janela_deslizante()
         self.simulacao_finalizada = True
 
     def cria_e_roteia_requisicao(self, index_requisicao) -> Generator:
