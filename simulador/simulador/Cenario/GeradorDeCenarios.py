@@ -1,68 +1,96 @@
-import simpy
-import networkx as nx
-from Topology.Topologia import Topologia
-from ISP.GeradorDeISPs import GeradorDeISPs
-from Desastre.GeradorDeDesastre import GeradorDeDesastre
-from Desastre.Desastre import Desastre
-from Requisicao.Requisicao import Requisicao
-from Requisicao.GeradorDeTrafego import GeradorDeTrafego
-from ISP.ISP import ISP
-from Variaveis import *
-from Cenario.Cenario import Cenario
-from Roteamento.iRoteamento import iRoteamento
-from Roteamento.Roteamento import Roteamento
 from copy import deepcopy
 
+import networkx as nx
+from Cenario.Cenario import Cenario
+from Desastre.Desastre import Desastre
+from Desastre.GeradorDeDesastre import GeradorDeDesastre
+from ISP.GeradorDeISPs import GeradorDeISPs
+from ISP.ISP import ISP
+from Requisicao.GeradorDeTrafego import GeradorDeTrafego
+from Requisicao.requisicao import Requisicao
+from Roteamento.IRoteamento import IRoteamento
+from Roteamento.Roteamento import Roteamento
+from Topology.Topologia import Topologia
+from variaveis import NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS, numero_de_isps
+
+
 class GeradorDeCenarios:
-
     @staticmethod
-    def gerar_cenario( 
-            topology: nx.Graph, disasterNode: int = None, retornar_objetos: bool = False, retorna_lista_de_requisicoes: bool = False,
-            numero_de_requisicoes: int = 0, roteamento_de_desastre: 'iRoteamento' = Roteamento 
-                        ) -> tuple[Topologia, list[ISP], Desastre, list[Requisicao]] | Cenario:
-        
+    def gerar_cenario(
+        topology: nx.Graph,
+        disaster_node: int | None = None,
+        retornar_objetos: bool = False,
+        retorna_lista_de_requisicoes: bool = False,
+        numero_de_requisicoes: int = 0,
+        roteamento_de_desastre: "IRoteamento" = Roteamento,
+    ) -> tuple[Topologia, list[ISP], Desastre, list[Requisicao]] | Cenario:
         datacenter_destinations = ()
-        #garante que os datacenters pra migração não estão no mesmo lugar
-        while len(datacenter_destinations) < NUMERO_DE_ISPS:
+        # garante que os datacenters pra migração não estão no mesmo lugar
+        while len(datacenter_destinations) < numero_de_isps:
             desastre = None
-            while desastre is None or (disasterNode is not None and desastre.list_of_dict_node_per_start_time[0]['node'] != disasterNode):
-                lista_de_ISPs :list[ISP] = GeradorDeISPs.gerar_lista_ISPs_aleatorias( topology=topology, numero_de_ISPs=NUMERO_DE_ISPS , roteamento_de_desastre=roteamento_de_desastre)
-                desastre      :Desastre  = GeradorDeDesastre.generate_disaster( topology, lista_de_ISPs )
+            while desastre is None or (
+                disaster_node is not None
+                and desastre.list_of_dict_node_per_start_time[0]["node"]
+                != disaster_node
+            ):
+                lista_de_isps: list[ISP] = GeradorDeISPs.gerar_lista_isps_aleatorias(
+                    topology=topology,
+                    numero_de_isps=numero_de_isps,
+                    roteamento_de_desastre=roteamento_de_desastre,
+                )
+                desastre: Desastre = GeradorDeDesastre.generate_disaster(
+                    topology, lista_de_isps
+                )
 
-            topologia      :Topologia = Topologia( topology, lista_de_ISPs, NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS )
-            lista_de_requisicoes : list[Requisicao] = None
+            topologia: Topologia = Topologia(
+                topology, lista_de_isps, NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS
+            )
+            lista_de_requisicoes: list[Requisicao] = None
 
-            for isp in lista_de_ISPs:
-                isp.define_datacenter( desastre, topologia.topology )
-            datacenter_destinations = set( isp.datacenter.destination for isp in lista_de_ISPs )
-        
+            for isp in lista_de_isps:
+                isp.define_datacenter(desastre, topologia.topology)
+            datacenter_destinations = set(
+                isp.datacenter.destination for isp in lista_de_isps
+            )
+
         topologia.desastre = desastre
-        desastre.seta_links_como_prestes_a_falhar( topologia )
-        topologia.inicia_caminhos_mais_curtos_durante_desastre(NUMERO_DE_CAMINHOS)
+        desastre.seta_links_como_prestes_a_falhar(topologia)
+        topologia.inicia_caminhos_mais_curtos_durante_desastre(
+            NUMERO_DE_CAMINHOS, desastre.list_of_dict_node_per_start_time[0]["node"]
+        )
 
         if retorna_lista_de_requisicoes:
-            lista_de_requisicoes = GeradorDeTrafego.gerar_lista_de_requisicoes( topologia, numero_de_requisicoes, lista_de_ISPs, desastre )
-        
+            lista_de_requisicoes = GeradorDeTrafego.gerar_lista_de_requisicoes(
+                topologia, numero_de_requisicoes, lista_de_isps, desastre
+            )
+
         if retornar_objetos:
-            return Cenario(topologia, lista_de_ISPs, desastre, lista_de_requisicoes)
-        else:
-            return topologia, lista_de_ISPs, desastre, lista_de_requisicoes
-    
+            return Cenario(topologia, lista_de_isps, desastre, lista_de_requisicoes)
+        return topologia, lista_de_isps, desastre, lista_de_requisicoes
+
     @staticmethod
-    def gerar_cenarios( 
-            topology: nx.Graph, disasterNode: int = None, retorna_lista_de_requisicoes: bool = False,
-            numero_de_requisicoes: int = 0, lista_de_roteamentos_de_desastre: list['iRoteamento'] = [Roteamento] 
-            ) -> tuple[Cenario, ...]:
-        
-        cenario = GeradorDeCenarios.gerar_cenario(topology, disasterNode=disasterNode, retornar_objetos=True, retorna_lista_de_requisicoes=retorna_lista_de_requisicoes, numero_de_requisicoes=numero_de_requisicoes,
-                                                   roteamento_de_desastre=lista_de_roteamentos_de_desastre.pop(0))
+    def gerar_cenarios(
+        topology: nx.Graph,
+        disaster_node: int | None = None,
+        retorna_lista_de_requisicoes: bool = False,
+        numero_de_requisicoes: int = 0,
+        lista_de_roteamentos_de_desastre: list["IRoteamento"] | None = None,
+    ) -> tuple[Cenario, ...]:
+        if lista_de_roteamentos_de_desastre is None:
+            lista_de_roteamentos_de_desastre = [Roteamento]
+
+        cenario = GeradorDeCenarios.gerar_cenario(
+            topology,
+            disaster_node=disaster_node,
+            retornar_objetos=True,
+            retorna_lista_de_requisicoes=retorna_lista_de_requisicoes,
+            numero_de_requisicoes=numero_de_requisicoes,
+            roteamento_de_desastre=lista_de_roteamentos_de_desastre.pop(0),
+        )
         lista_de_cenarios: list[Cenario] = [cenario]
         for roteamento in lista_de_roteamentos_de_desastre:
             novo_cenario = deepcopy(cenario)
-            novo_cenario.troca_roteamento_lista_de_desastre( roteamento )
+            novo_cenario.troca_roteamento_lista_de_desastre(roteamento)
             lista_de_cenarios.append(novo_cenario)
-        
-        return tuple(lista_de_cenarios)
 
-       
-    
+        return tuple(lista_de_cenarios)
