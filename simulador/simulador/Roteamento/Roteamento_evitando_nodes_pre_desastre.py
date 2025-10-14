@@ -13,9 +13,12 @@ if TYPE_CHECKING:
 
 class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
     @classmethod
+    @staticmethod
+    @staticmethod
     def __str__(cls) -> str:
         return "Roteamento first fit"
 
+    @staticmethod
     def rotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -30,6 +33,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
         Registrador.incrementa_numero_requisicoes_bloqueadas(requisicao, env)
         return False
 
+    @staticmethod
     def rerotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -51,6 +55,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
         Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas(requisicao, env)
         return False
 
+    @staticmethod
     def __rotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -68,6 +73,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
         requisicao.bloqueia_requisicao(env.now)
         return False
 
+    @staticmethod
     def __aloca_requisicao(
         requisicao: Requisicao,
         topology: "Topologia",
@@ -84,6 +90,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
                 )
                 break
 
+    @staticmethod
     def __aloca_datapath(
         requisicao: Requisicao,
         topology: "Topologia",
@@ -126,6 +133,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
             informacoes_datapath["distancia"],
         )
 
+    @staticmethod
     def __retorna_informacoes_datapaths(
         requisicao: Requisicao, topology: "Topologia"
     ) -> tuple[list[dict], bool]:
@@ -182,6 +190,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
 
         return (lista_de_informacoes_datapath, pelo_menos_uma_janela_habil)
 
+    @staticmethod
     def informacoes_sobre_slots(
         caminho, topology: "Topologia"
     ) -> tuple[list[tuple[int, int]], int]:
@@ -213,6 +222,7 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
 
         return lista_de_inicios_e_fins, maior_janela
 
+    @staticmethod
     def __checa_concurrency_slot(
         caminho: list, topology: "Topologia", indice: int
     ) -> bool:
@@ -221,5 +231,6 @@ class Roteamento_evitando_nodes_pre_desastre(IRoteamento):
                 return False
         return True
 
+    @staticmethod
     def __slots_nescessarios(demanda, fator_modulacao) -> int:
         return int(math.ceil(float(demanda) / fator_modulacao))

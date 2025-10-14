@@ -17,9 +17,11 @@ MAX_DIPONIBILITY_PROPORTION = 1.1
 
 
 class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
+    @staticmethod
     def __str__(cls):
         return "Roteamento best fit"
 
+    @staticmethod
     def __bloqueio_artificial(requisicao: Requisicao, env: Environment) -> bool:
         is_extra_component_traffic = (
             requisicao.src in COMPONENTE_1 and requisicao.dst in COMPONENTE_2
@@ -37,6 +39,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
 
         return False
 
+    @staticmethod
     def rotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -55,6 +58,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
         Registrador.incrementa_numero_requisicoes_bloqueadas(requisicao, env)
         return False
 
+    @staticmethod
     def rerotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -72,6 +76,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
         Registrador.incrementa_numero_requisicoes_reroteadas_bloqueadas(requisicao, env)
         return False
 
+    @staticmethod
     def __rotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
@@ -94,6 +99,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
         requisicao.bloqueia_requisicao(env.now)
         return False
 
+    @staticmethod
     def __aloca_requisicao(
         requisicao: Requisicao,
         topology: "Topologia",
@@ -106,6 +112,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
             requisicao, topology, informacoes_datapath, env
         )
 
+    @staticmethod
     def __aloca_datapath(
         requisicao: Requisicao,
         topology: "Topologia",
@@ -133,6 +140,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
             informacoes_datapath["distancia"],
         )
 
+    @staticmethod
     def __retorna_informacoes_datapaths(
         requisicao: Requisicao, topology: "Topologia"
     ) -> tuple[list[dict], bool]:
@@ -200,6 +208,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
             indice_melhor_caminho,
         )
 
+    @staticmethod
     def informacoes_sobre_slots(
         caminho, topology: "Topologia", numero_slots_nescessarios: int
     ) -> tuple[list[tuple[int, int]], int]:
@@ -245,6 +254,7 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
             inicio_menor_janela_habil,
         )
 
+    @staticmethod
     def __checa_concurrency_slot(
         caminho: list, topology: "Topologia", indice: int
     ) -> bool:
@@ -253,5 +263,6 @@ class RoteamentoBestFit_evitando_nodes_pre_desastre_com_bloqueio(IRoteamento):
                 return False
         return True
 
+    @staticmethod
     def __slots_nescessarios(demanda, fator_modulacao) -> int:
         return int(math.ceil(float(demanda) / fator_modulacao))
