@@ -15,6 +15,7 @@ class IRoteamento(ABC):
     class that provides routing functionality.
     """
 
+    @staticmethod
     @abstractmethod
     def rotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
@@ -29,6 +30,7 @@ class IRoteamento(ABC):
         """
         pass
 
+    @staticmethod
     @abstractmethod
     def rerotear_requisicao(
         requisicao: Requisicao, topology: "Topologia", env: Environment
@@ -43,8 +45,9 @@ class IRoteamento(ABC):
         """
         pass
 
+    @staticmethod
     @abstractmethod
-    def __str__(self):
+    def __str__():
         """Return a string representation of the router.
 
         Returns:
