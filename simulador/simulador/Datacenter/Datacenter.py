@@ -3,18 +3,18 @@ from random import expovariate
 from typing import TYPE_CHECKING
 
 import simpy
-from logger import Logger
-from registrador import Registrador
-from Requisicao.GeradorDeTrafego import GeradorDeTrafego
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
-from variaveis import BANDWIDTH
+from simulador.logger import Logger
+from simulador.registrador import Registrador
+from simulador.Requisicao.GeradorDeTrafego import GeradorDeTrafego
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
+from simulador.variaveis import BANDWIDTH
 
 if TYPE_CHECKING:
-    from ISP.ISP import ISP
-    from Topology.Topologia import Topologia
+    from simulador.ISP.ISP import ISP
+    from simulador.Topology.Topologia import Topologia
 
-    from simulador import Simulador
+    from simulador.simulador import Simulador
 
 
 class Datacenter:
@@ -47,7 +47,7 @@ class Datacenter:
 
     def __migrar(self, simulador: "Simulador", isp: "ISP") -> Generator:
         Logger.mensagem_inicia_migracao(
-            isp.id, self.source, self.destination, simulador.env.now
+            isp.isp_id, self.source, self.destination, simulador.env.now
         )
         taxa_mensagens = self.throughput_por_segundo / (sum(BANDWIDTH) / len(BANDWIDTH))
         inicio_desastre = simulador.desastre.start
@@ -58,7 +58,7 @@ class Datacenter:
             dados_enviados < self.tamanho_datacenter
             and simulador.env.now < inicio_desastre
         ):
-            requisicao = self.pega_requisicao(req_id, simulador, isp.id)
+            requisicao = self.pega_requisicao(req_id, simulador, isp.isp_id)
             Registrador.adiciona_requisicao(requisicao)
             bandwidth = requisicao.bandwidth
             req_id += 1
@@ -71,14 +71,16 @@ class Datacenter:
             if resultado:
                 dados_enviados += bandwidth
                 Logger.mensagem_acompanha_status_migracao(
-                    isp.id, dados_enviados / self.tamanho_datacenter, simulador.env.now
+                    isp.isp_id,
+                    dados_enviados / self.tamanho_datacenter,
+                    simulador.env.now,
                 )
 
         Registrador.porcentagem_de_dados_enviados(
-            isp.id, simulador.env.now, dados_enviados / self.tamanho_datacenter
+            isp.isp_id, simulador.env.now, dados_enviados / self.tamanho_datacenter
         )
         Logger.mensagem_finaliza_migracao(
-            isp.id, simulador.env.now, dados_enviados / self.tamanho_datacenter
+            isp.isp_id, simulador.env.now, dados_enviados / self.tamanho_datacenter
         )
 
     def gerar_requisicao(

@@ -2,8 +2,8 @@ from typing import TYPE_CHECKING
 
 import networkx as nx
 import numpy as np
-from Datacenter.Datacenter import Datacenter
-from variaveis import (
+from simulador.Datacenter.Datacenter import Datacenter
+from simulador.variaveis import (
     TAMANHO_DATACENTER,
     TEMPO_DE_REACAO,
     THROUGHPUT,
@@ -13,7 +13,7 @@ from variaveis import (
 )
 
 if TYPE_CHECKING:
-    from Desastre.Desastre import Desastre
+    from simulador.Desastre.Desastre import Desastre
 
 
 class GeradorDeDatacenter:

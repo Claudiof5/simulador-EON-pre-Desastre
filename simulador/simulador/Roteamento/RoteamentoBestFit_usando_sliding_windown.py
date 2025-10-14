@@ -2,14 +2,14 @@ import math
 import random
 from typing import TYPE_CHECKING
 
-from registrador import Registrador
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
+from simulador.registrador import Registrador
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
 from simpy import Environment
-from variaveis import *
+from simulador.variaveis import *
 
 if TYPE_CHECKING:
-    from Topology.Topologia import Topologia
+    from simulador.Topology.Topologia import Topologia
 COMPONENTE_1 = [num for num in range(1, 9)]
 COMPONENTE_2 = [num for num in range(10, 25)]
 

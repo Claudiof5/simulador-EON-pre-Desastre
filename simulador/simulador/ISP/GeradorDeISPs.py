@@ -2,8 +2,9 @@ from itertools import combinations
 
 import networkx as nx
 import numpy as np
-from ISP.ISP import ISP
-from Roteamento.IRoteamento import IRoteamento
+
+from simulador.ISP.ISP import ISP
+from simulador.Roteamento.IRoteamento import IRoteamento
 
 
 class GeradorDeISPs:
@@ -82,8 +83,26 @@ class GeradorDeISPs:
 
     @staticmethod
     def gerar_lista_isps_aleatorias(
-        topology: nx.Graph, numero_de_isps: int, roteamento_de_desastre: "IRoteamento"
+        topology: nx.Graph,
+        numero_de_isps: int,
+        roteamento_de_desastre: "IRoteamento",
+        computar_caminhos_internos: bool = True,
+        numero_de_caminhos: int = 3,
+        node_desastre: int | None = None,
     ) -> list[ISP]:
+        """Generate a list of random ISPs.
+
+        Args:
+            topology: Network topology
+            numero_de_isps: Number of ISPs to generate
+            roteamento_de_desastre: Disaster routing method
+            computar_caminhos_internos: Whether to compute internal paths for each ISP
+            numero_de_caminhos: Number of alternative paths to compute per node pair
+            node_desastre: Node that will fail during disaster (for disaster path computation)
+
+        Returns:
+            list[ISP]: List of generated ISPs with precomputed internal paths
+        """
         while True:
             centers = np.random.choice(
                 list(topology.nodes), numero_de_isps, replace=False
@@ -130,13 +149,23 @@ class GeradorDeISPs:
 
         lista_de_isps = []
         for isp_id, isp_dict in isps_dict.items():
-            lista_de_isps.append(
-                ISP(
-                    isp_id,
-                    isp_dict["nodes"],
-                    isp_dict["edges"],
-                    roteamento_de_desastre=roteamento_de_desastre,
-                )
+            isp = ISP(
+                isp_id,
+                isp_dict["nodes"],
+                isp_dict["edges"],
+                roteamento_de_desastre=roteamento_de_desastre,
             )
+
+            # Compute internal paths if requested
+            if computar_caminhos_internos:
+                isp.computar_caminhos_internos(topology, numero_de_caminhos)
+
+                # Compute disaster-aware paths if disaster node is provided
+                if node_desastre is not None:
+                    isp.computar_caminhos_internos_durante_desastre(
+                        topology, node_desastre, numero_de_caminhos
+                    )
+
+            lista_de_isps.append(isp)
 
         return lista_de_isps

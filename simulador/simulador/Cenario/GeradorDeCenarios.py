@@ -1,17 +1,17 @@
 from copy import deepcopy
 
 import networkx as nx
-from Cenario.Cenario import Cenario
-from Desastre.Desastre import Desastre
-from Desastre.GeradorDeDesastre import GeradorDeDesastre
-from ISP.GeradorDeISPs import GeradorDeISPs
-from ISP.ISP import ISP
-from Requisicao.GeradorDeTrafego import GeradorDeTrafego
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
-from Roteamento.Roteamento import Roteamento
-from Topology.Topologia import Topologia
-from variaveis import NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS, numero_de_isps
+from simulador.Cenario.Cenario import Cenario
+from simulador.Desastre.Desastre import Desastre
+from simulador.Desastre.GeradorDeDesastre import GeradorDeDesastre
+from simulador.ISP.GeradorDeISPs import GeradorDeISPs
+from simulador.ISP.ISP import ISP
+from simulador.Requisicao.GeradorDeTrafego import GeradorDeTrafego
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
+from simulador.Roteamento.Roteamento import Roteamento
+from simulador.Topology.Topologia import Topologia
+from simulador.variaveis import NUMERO_DE_CAMINHOS, NUMERO_DE_SLOTS, numero_de_isps
 
 
 class GeradorDeCenarios:

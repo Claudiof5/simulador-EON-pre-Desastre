@@ -1,15 +1,15 @@
 from collections.abc import Generator
 from typing import TYPE_CHECKING
 
-from logger import Logger
-from registrador import Registrador
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
+from simulador.logger import Logger
+from simulador.registrador import Registrador
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
 
 if TYPE_CHECKING:
-    from Topology.Topologia import Topologia
+    from simulador.Topology.Topologia import Topologia
 
-    from simulador import Simulador
+    from simulador.simulador import Simulador
 
 
 class Desastre:

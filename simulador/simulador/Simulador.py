@@ -9,17 +9,17 @@ from collections.abc import Generator
 
 import networkx as nx
 import simpy
-from Cenario.Cenario import Cenario
-from Cenario.GeradorDeCenarios import GeradorDeCenarios
-from Desastre.Desastre import Desastre
-from ISP.ISP import ISP
-from logger import Logger
-from registrador import Registrador
-from Requisicao.GeradorDeTrafego import GeradorDeTrafego
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
-from Topology.Topologia import Topologia
-from variaveis import NUMERO_DE_REQUISICOES, REQUISICOES_POR_SEGUNDO
+from simulador.Cenario.Cenario import Cenario
+from simulador.Cenario.GeradorDeCenarios import GeradorDeCenarios
+from simulador.Desastre.Desastre import Desastre
+from simulador.ISP.ISP import ISP
+from simulador.logger import Logger
+from simulador.registrador import Registrador
+from simulador.Requisicao.GeradorDeTrafego import GeradorDeTrafego
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
+from simulador.Topology.Topologia import Topologia
+from simulador.variaveis import NUMERO_DE_REQUISICOES, REQUISICOES_POR_SEGUNDO
 
 
 class Simulador:
