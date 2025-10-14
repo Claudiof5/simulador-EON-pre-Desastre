@@ -1,10 +1,10 @@
 from typing import TYPE_CHECKING
 
-from Requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
 
 if TYPE_CHECKING:
-    from Topology.Topologia import Topologia
+    from simulador.Topology.Topologia import Topologia
 
 
 class RoteamentoDesastre(IRoteamento):

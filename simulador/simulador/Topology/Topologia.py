@@ -9,25 +9,16 @@ Contains the Topologia class that manages the network topology including:
 """
 
 from collections.abc import Generator
-from itertools import islice
 from typing import TYPE_CHECKING
 
 import networkx as nx
 import simpy
-from ISP.ISP import ISP
-from variaveis import (
-    DISTANCIA_MODULACAO_2,
-    DISTANCIA_MODULACAO_3,
-    DISTANCIA_MODULACAO_4,
-    FATOR_MODULACAO_1,
-    FATOR_MODULACAO_2,
-    FATOR_MODULACAO_3,
-    FATOR_MODULACAO_4,
-    SLOT_SIZE,
-)
+
+from simulador.ISP.ISP import ISP
+from simulador.PathManager import PathManager
 
 if TYPE_CHECKING:
-    from Desastre.Desastre import Desastre
+    from simulador.Desastre.Desastre import Desastre
 
 
 class Topologia:
@@ -123,109 +114,78 @@ class Topologia:
 
         for isp in list_of_isp:
             for node in isp.nodes:
-                self.topology.nodes[node]["ISPs"].append(isp.id)
+                self.topology.nodes[node]["ISPs"].append(isp.isp_id)
 
             for edge in isp.edges:
-                self.topology[edge[0]][edge[1]]["ISPs"].append(isp.id)
+                self.topology[edge[0]][edge[1]]["ISPs"].append(isp.isp_id)
 
     def __inicia_caminhos_mais_curtos(self, numero_de_caminhos: int) -> None:
-        """Precompute shortest paths between all node pairs.
+        """Precompute shortest paths between all node pairs using PathManager.
 
         Args:
             numero_de_caminhos: Number of alternative paths to compute
 
         """
-        for node1 in self.topology.nodes():
-            self.caminhos_mais_curtos_entre_links[int(node1)] = {}
-
-            for node2 in self.topology.nodes():
-                if node1 == node2:
-                    continue
-
-                caminhos_mais_curtos_entre_i_e_j = self.__k_shortest_paths(
-                    self.topology, node1, node2, numero_de_caminhos, weight="weight"
-                )
-                informacoes_caminhos_mais_curtos_entre_i_e_j = []
-
-                for caminho in caminhos_mais_curtos_entre_i_e_j:
-                    distancia = self.distancia_caminho(caminho)
-                    fator_de_modulacao = self.__fator_de_modulacao(distancia)
-                    informacoes_caminhos_mais_curtos_entre_i_e_j.append(
-                        {
-                            "caminho": caminho,
-                            "distancia": distancia,
-                            "fator_de_modulacao": fator_de_modulacao,
-                        }
-                    )
-
-                self.caminhos_mais_curtos_entre_links[int(node1)][int(node2)] = (
-                    informacoes_caminhos_mais_curtos_entre_i_e_j
-                )
+        self.caminhos_mais_curtos_entre_links = PathManager.precompute_all_pairs_paths(
+            self.topology, k=numero_de_caminhos
+        )
 
     def inicia_caminhos_mais_curtos_durante_desastre(
         self, numero_de_caminhos: int, node_desastre: int
     ) -> None:
-        """Compute shortest paths excluding disaster-affected nodes.
+        """Compute shortest paths excluding disaster-affected nodes using PathManager.
 
         Args:
             numero_de_caminhos: Number of alternative paths to compute
             node_desastre: Node identifier that will fail during disaster
 
         """
+        # Create disaster topology by removing the affected node
         topologia_desastre = self.topology.copy()
         topologia_desastre.remove_node(node_desastre)
+
         print("node_desastre", node_desastre)
-        for node1 in self.topology.nodes():
-            self.caminhos_mais_curtos_entre_links_durante_desastre[int(node1)] = {}
-            for node2 in self.topology.nodes():
-                self.caminhos_mais_curtos_entre_links_durante_desastre[int(node1)][
-                    int(node2)
-                ] = []
-                if node1 in (node2, node_desastre) or node2 == node_desastre:
-                    continue
-                caminhos_mais_curtos_entre_i_e_j_desastre = self.__k_shortest_paths(
-                    topologia_desastre,
-                    node1,
-                    node2,
-                    numero_de_caminhos,
-                    weight="weight",
-                )
-                informacoes_caminhos_mais_curtos_entre_i_e_j_desastre = []
 
-                for caminho in caminhos_mais_curtos_entre_i_e_j_desastre:
-                    distancia = self.distancia_caminho(caminho)
-                    fator_de_modulacao = self.__fator_de_modulacao(distancia)
-                    informacoes_caminhos_mais_curtos_entre_i_e_j_desastre.append(
-                        {
-                            "caminho": caminho,
-                            "distancia": distancia,
-                            "fator_de_modulacao": fator_de_modulacao,
-                        }
-                    )
+        # Get all nodes except the disaster node
+        available_nodes = [
+            node for node in self.topology.nodes() if node != node_desastre
+        ]
 
-                self.caminhos_mais_curtos_entre_links_durante_desastre[int(node1)][
-                    int(node2)
-                ] = informacoes_caminhos_mais_curtos_entre_i_e_j_desastre
+        # Compute all pairs paths on disaster topology using PathManager
+        self.caminhos_mais_curtos_entre_links_durante_desastre = (
+            PathManager.precompute_all_pairs_paths(
+                topologia_desastre, available_nodes, numero_de_caminhos
+            )
+        )
 
-    def __k_shortest_paths(
-        self, graph: nx.Graph, source, target, k, weight="weight"
-    ) -> list:
-        """Compute k shortest paths between source and target nodes.
+        # Initialize empty paths for disaster node connections
+        for node in self.topology.nodes():
+            if int(node) not in self.caminhos_mais_curtos_entre_links_durante_desastre:
+                self.caminhos_mais_curtos_entre_links_durante_desastre[int(node)] = {}
+
+            # Ensure all node pairs have an entry (empty if involving disaster node)
+            for target_node in self.topology.nodes():
+                if (
+                    int(target_node)
+                    not in self.caminhos_mais_curtos_entre_links_durante_desastre[
+                        int(node)
+                    ]
+                ):
+                    self.caminhos_mais_curtos_entre_links_durante_desastre[int(node)][
+                        int(target_node)
+                    ] = []
+
+    def distancia_caminho(self, caminho: list[int]) -> float:
+        """Calculate total distance of a path using PathManager.
 
         Args:
-            graph: NetworkX graph to search
-            source: Source node identifier
-            target: Target node identifier
-            k: Number of shortest paths to find
-            weight: Edge attribute to use as weight
+            caminho: List of nodes representing the path
 
         Returns:
-            list: List of k shortest paths as node sequences
+            float: Total distance of the path
 
         """
-        return list(
-            islice(nx.shortest_simple_paths(graph, source, target, weight=weight), k)
-        )
+        return PathManager.calculate_path_distance(self.topology, caminho)
 
     def desalocate(self, path, spectro) -> None:
         """Immediately deallocate frequency slots along a path.
@@ -274,21 +234,6 @@ class Topologia:
         for i in range(0, len(path) - 1):
             for slot in range(inicio, fim + 1):
                 self.topology[path[i]][path[i + 1]]["slots"][slot] = 1
-
-    def distancia_caminho(self, path) -> int:
-        """Calculate total distance of a path.
-
-        Args:
-            path: List of nodes representing the path
-
-        Returns:
-            int: Total distance in kilometers
-
-        """
-        soma = 0
-        for i in range(0, (len(path) - 1)):
-            soma += self.topology[path[i]][path[i + 1]]["weight"]
-        return soma
 
     def caminho_passa_por_link(self, ponto_a, ponto_b, caminho) -> bool:
         """Check if path traverses a specific link.
@@ -350,7 +295,7 @@ class Topologia:
         )
 
     def __fator_de_modulacao(self, distancia) -> float:
-        """Calculate modulation factor based on transmission distance.
+        """Calculate modulation factor based on transmission distance using PathManager.
 
         Args:
             distancia: Transmission distance in kilometers
@@ -359,10 +304,6 @@ class Topologia:
             float: Modulation factor (spectral efficiency × slot size)
 
         """
-        if distancia <= DISTANCIA_MODULACAO_4:
-            return float(FATOR_MODULACAO_4 * SLOT_SIZE)
-        if DISTANCIA_MODULACAO_4 < distancia <= DISTANCIA_MODULACAO_3:
-            return float(FATOR_MODULACAO_3 * SLOT_SIZE)
-        if DISTANCIA_MODULACAO_3 < distancia <= DISTANCIA_MODULACAO_2:
-            return float(FATOR_MODULACAO_2 * SLOT_SIZE)
-        return float(FATOR_MODULACAO_1 * SLOT_SIZE)
+        return PathManager.calculate_modulation_factor(
+            distancia, include_slot_size=True
+        )

@@ -1,8 +1,8 @@
 import networkx as nx
 import numpy as np
-from Desastre.Desastre import Desastre
-from ISP.ISP import ISP
-from variaveis import (
+from simulador.Desastre.Desastre import Desastre
+from simulador.ISP.ISP import ISP
+from simulador.variaveis import (
     DURACAO_DESASTRE,
     INICIO_DESASTRE,
     VARIANCIA_DURACAO_DESASTRE,

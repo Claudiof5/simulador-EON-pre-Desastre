@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
-from Requisicao.requisicao import Requisicao
+from simulador.Requisicao.requisicao import Requisicao
 from simpy import Environment
 
 if TYPE_CHECKING:
-    from Topology.Topologia import Topologia
+    from simulador.Topology.Topologia import Topologia
 
 
 class IRoteamento(ABC):
@@ -17,7 +17,7 @@ class IRoteamento(ABC):
 
     @abstractmethod
     def rotear_requisicao(
-        self, requisicao: Requisicao, topology: "Topologia", env: Environment
+        requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
         """Route a request using the appropriate ISP router.
 
@@ -31,7 +31,7 @@ class IRoteamento(ABC):
 
     @abstractmethod
     def rerotear_requisicao(
-        self, requisicao: Requisicao, topology: "Topologia", env: Environment
+        requisicao: Requisicao, topology: "Topologia", env: Environment
     ) -> bool:
         """Reroute a request using the appropriate ISP router.
 

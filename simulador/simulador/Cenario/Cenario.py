@@ -2,11 +2,11 @@ import os
 import pickle
 from copy import deepcopy
 
-from Desastre.Desastre import Desastre
-from ISP.ISP import ISP
-from Requisicao.requisicao import Requisicao
-from Roteamento.IRoteamento import IRoteamento
-from Topology.Topologia import Topologia
+from simulador.Desastre.Desastre import Desastre
+from simulador.ISP.ISP import ISP
+from simulador.Requisicao.requisicao import Requisicao
+from simulador.Roteamento.IRoteamento import IRoteamento
+from simulador.Topology.Topologia import Topologia
 
 
 class Cenario:
