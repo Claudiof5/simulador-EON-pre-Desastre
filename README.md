@@ -12,11 +12,11 @@ Uma vez que a ISP seja acionada o metodo de roteamento aplicado deve levar em co
 
 Para a solução desse problema, eu decidi criar um simulador que emula uma EON com parametros ajustaveis. Esse simulador emula o envio de um número X de requisições de datapath a uma taxa de Y requisições por segundo e coleta dados sobre o bloqueio e aceitação dessas mensagens durante todo o antes o durante e o logo depois do desastre
 
-## Funcionamento do Simulador
+## Funcionamento do Simulator
 
 O simulador planejado se trata de um conjunto de varios modulos que funcionam em conjuntos e utiliza como recurso principal a biblioteca simpy do python. Os modulos são:
 
-### 1. [Simulador](simuladorV2/Simulador.py):
+### 1. [Simulator](simuladorV2/Simulator.py):
 
 Classe é responsável por receber um [cenario](#2-cenario) ou criar um atravez do [gerador de cenários](#21-geradordecenarios), e executar um loop de criar uma [requisicão](#3-requisicao) com o [gerador de trafego](#31-geradordetrafego) ou receber uma requisição de uma lista de [requisições](#3-requisicao) pre feita, e rotear a mesma usando o roteamento da ISP de origem da [requisição](#3-requisicao)
 

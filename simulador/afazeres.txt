@@ -1,7 +1,0 @@
-
-
-erros:
-    -vez ou outra datacenter inicia migração para node 0 que não existe na topologia
-
-afazeres:
-    -adapatar Simulador.py de maneira que caso um cenario com uma lista de Requisicoes for passada ele haja de acordo
