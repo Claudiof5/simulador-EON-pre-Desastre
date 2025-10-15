@@ -7,6 +7,8 @@ Provides centralized logging functionality for simulation events including:
 - Link and node failure logging
 """
 
+from __future__ import annotations
+
 
 class Logger:
     """Singleton logger for simulation event tracking.
@@ -22,7 +24,7 @@ class Logger:
 
     """
 
-    instance: "Logger" | None = None
+    instance: Logger | None = None
 
     def __init__(self, ativo: bool) -> None:
         """Initialize the logger with activation status.
@@ -36,7 +38,7 @@ class Logger:
         Logger.instance = self
 
     @staticmethod
-    def __get_instance() -> "Logger" | None:
+    def __get_instance() -> Logger | None:
         """Get the singleton logger instance.
 
         Returns:
@@ -115,21 +117,26 @@ class Logger:
 
         if instance and instance.ativo:
             if isp_id not in instance.isps_sendo_acompanhada:
+                # Thresholds in percentage (0-100) to match the passed percentual value
                 instance.isps_sendo_acompanhada[isp_id] = [
-                    0.1,
-                    0.2,
-                    0.3,
-                    0.4,
-                    0.5,
-                    0.6,
-                    0.7,
-                    0.8,
-                    0.9,
-                    1,
+                    10,
+                    20,
+                    30,
+                    40,
+                    50,
+                    60,
+                    70,
+                    80,
+                    90,
+                    100,
                 ]
-            if percentual >= instance.isps_sendo_acompanhada[isp_id][0]:
+            # Check if list is not empty before accessing
+            if (
+                instance.isps_sendo_acompanhada[isp_id]
+                and percentual >= instance.isps_sendo_acompanhada[isp_id][0]
+            ):
                 print(
-                    f"Status ISP {isp_id}, {percentual * 100}% da migração concluída no tempo {time}"
+                    f"Status ISP {isp_id}, {percentual}% da migração concluída no tempo {time}"
                 )
                 instance.isps_sendo_acompanhada[isp_id].pop(0)
 

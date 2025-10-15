@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from typing import cast
 
@@ -28,7 +30,7 @@ class ScenarioGenerator:
         retornar_objetos: bool = False,
         retorna_lista_de_requisicoes: bool = False,
         numero_de_requisicoes: int = 0,
-        roteamento_de_desastre: type["RoutingBase"] = FirstFit,
+        roteamento_de_desastre: type[RoutingBase] = FirstFit,
     ) -> tuple[Topology, list[ISP], Disaster, list[Request]] | Scenario:
         datacenter_destinations: set[int] = set()
         while len(datacenter_destinations) < numero_de_isps:
@@ -85,7 +87,7 @@ class ScenarioGenerator:
         disaster_node: int | None = None,
         retorna_lista_de_requisicoes: bool = False,
         numero_de_requisicoes: int = 0,
-        lista_de_roteamentos_de_desastre: list[type["RoutingBase"]] | None = None,
+        lista_de_roteamentos_de_desastre: list[type[RoutingBase]] | None = None,
     ) -> tuple[Scenario, ...]:
         if lista_de_roteamentos_de_desastre is None:
             lista_de_roteamentos_de_desastre = [FirstFit]

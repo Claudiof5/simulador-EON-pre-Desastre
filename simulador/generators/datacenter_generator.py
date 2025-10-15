@@ -11,9 +11,9 @@ from simulador.config.settings import (
     VARIANCIA_TEMPO_DE_REACAO,
     VARIANCIA_THROUGPUT,
 )
-from simulador.entities.datacenter import Datacenter
 
 if TYPE_CHECKING:
+    from simulador.entities.datacenter import Datacenter
     from simulador.entities.disaster import Disaster
 
 
@@ -22,6 +22,9 @@ class DatacenterGenerator:
     def gerar_datacenter(
         disaster: "Disaster", topology: nx.Graph, nodes_isp: list, specific_values=None
     ) -> "Datacenter":
+        # Import here to avoid circular dependency
+        from simulador.entities.datacenter import Datacenter
+
         if not specific_values:
             datacenter_source = int(
                 np.random.choice(

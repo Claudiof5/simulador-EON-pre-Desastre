@@ -149,17 +149,17 @@ from simulador.generators import TrafficGenerator
 
 ## 📊 Migration from simulador/
 
-| Old Path                       | New Path                           |
-| ------------------------------ | ---------------------------------- |
-| `variaveis.py`                 | `config/settings.py`               |
-| `PathManager.py`               | `core/path_manager.py`             |
-| `Topology/Topologia.py`        | `core/topology.py`                 |
-| `Requisicao/requisicao.py`     | `core/request.py`                  |
-| `ISP/ISP.py`                   | `entities/isp.py`                  |
-| `Roteamento/Roteamento.py`     | `routing/first_fit.py`             |
-| `Cenario/GeradorDeCenarios.py` | `generators/scenario_generator.py` |
-| `logger.py`                    | `utils/logger.py`                  |
-| `registrador.py`               | `utils/metrics.py`                 |
+| Old Path                        | New Path                           |
+| ------------------------------- | ---------------------------------- |
+| `variaveis.py`                  | `config/settings.py`               |
+| `PathManager.py`                | `core/path_manager.py`             |
+| `Topology/Topologia.py`         | `core/topology.py`                 |
+| `Requisicao/requisicao.py`      | `core/request.py`                  |
+| `ISP/ISP.py`                    | `entities/isp.py`                  |
+| `Roteamento/Roteamento.py`      | `routing/first_fit.py`             |
+| `Scenario/GeradorDeCenarios.py` | `generators/scenario_generator.py` |
+| `logger.py`                     | `utils/logger.py`                  |
+| `registrador.py`                | `utils/metrics.py`                 |
 
 ## 🔧 Development
 

@@ -1,9 +1,5 @@
-simulador/simulador/Cenario/cenarios/
-simulador/simulador/_out/resultados/
-simulador/simulador/Cenario/cenarios/cenario_demonstracao.pkl
-simulador/simulador/Cenario/cenarios/cenario1.pkl
-simulador/simulador/Cenario/cenarios/cenario2.pkl
 **/__pycache__/
 simulador/simulador/_out/
 *.csv
 *.pkl
+gittoken

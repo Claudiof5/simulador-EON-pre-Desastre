@@ -4,6 +4,8 @@ Contains the Simulator class that orchestrates the entire network simulation,
 including traffic generation, routing, disaster events, and data collection.
 """
 
+from __future__ import annotations
+
 import random
 from collections.abc import Generator
 from typing import cast

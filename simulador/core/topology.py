@@ -8,6 +8,8 @@ Contains the Topology class that manages the network topology including:
 - Resource allocation and deallocation
 """
 
+from __future__ import annotations
+
 from collections.abc import Generator
 from typing import TYPE_CHECKING
 
@@ -15,10 +17,10 @@ import networkx as nx
 import simpy
 
 from simulador.core.path_manager import PathManager
-from simulador.entities.isp import ISP
 
 if TYPE_CHECKING:
     from simulador.entities.disaster import Disaster
+    from simulador.entities.isp import ISP
 
 
 class Topology:
@@ -250,6 +252,8 @@ class Topology:
             bool: True if path uses the specified link
 
         """
+        if caminho is None:
+            return False
         return any(
             (
                 caminho[index] == ponto_a

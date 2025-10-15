@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import random
 from typing import TYPE_CHECKING
@@ -47,7 +49,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         bloqueio_artificial = (
             FirstFitEvitandoNodesPreDisasterComBloqueio.__bloqueio_artificial(
@@ -70,7 +72,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def rerotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         requisicao.dados_pre_reroteamento = (
             requisicao.retorna_tupla_chave_dicionario_dos_atributos()
@@ -90,7 +92,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def __rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = (
             FirstFitEvitandoNodesPreDisasterComBloqueio.__retorna_informacoes_datapaths(
@@ -109,7 +111,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
     @staticmethod
     def __aloca_requisicao(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapaths: list[dict],
         env: Environment,
     ) -> None:
@@ -126,7 +128,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
     @staticmethod
     def __aloca_datapath(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapath: dict,
         env: Environment,
     ) -> None:
@@ -168,7 +170,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def __retorna_informacoes_datapaths(
-        requisicao: Request, topology: "Topology"
+        requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool]:
         if (
             requisicao.dst in topology.caminhos_mais_curtos_entre_links_durante_desastre
@@ -224,7 +226,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def informacoes_sobre_slots(
-        caminho, topology: "Topology"
+        caminho, topology: Topology
     ) -> tuple[list[tuple[int, int]], int]:
         lista_de_inicios_e_fins = []
         current_start: int | None = None
@@ -256,7 +258,7 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def __checa_concurrency_slot(
-        caminho: list, topology: "Topology", indice: int
+        caminho: list, topology: Topology, indice: int
     ) -> bool:
         for i in range(0, (len(caminho) - 1)):
             if topology.topology[caminho[i]][caminho[i + 1]]["slots"][indice] != 0:
