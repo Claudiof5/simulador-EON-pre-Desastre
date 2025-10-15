@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import random
 from typing import TYPE_CHECKING
 
@@ -26,7 +28,7 @@ if TYPE_CHECKING:
 class TrafficGenerator:
     @staticmethod
     def gerar_requisicao(
-        topology: "Topology",
+        topology: Topology,
         req_id: int,
         specific_values: dict | None = None,
         trafego_subrede: bool = True,
@@ -55,7 +57,7 @@ class TrafficGenerator:
 
     @staticmethod
     def _gerar_requisicao_aleatoria(
-        topology: "Topology", req_id: int, trafego_subrede: bool = False
+        topology: Topology, req_id: int, trafego_subrede: bool = False
     ) -> Request:
         """Generate a request with random values.
 
@@ -114,7 +116,7 @@ class TrafficGenerator:
 
     @staticmethod
     def _gerar_requisicao_especifica(
-        topology: "Topology", req_id: int, specific_values: dict
+        topology: Topology, req_id: int, specific_values: dict
     ) -> Request:
         """Generate a request with specific values."""
         src, dst = TrafficGenerator._get_src_dst(topology, specific_values)
@@ -146,7 +148,7 @@ class TrafficGenerator:
         )
 
     @staticmethod
-    def _get_src_dst(topology: "Topology", specific_values: dict) -> tuple[int, int]:
+    def _get_src_dst(topology: Topology, specific_values: dict) -> tuple[int, int]:
         """Get source and destination nodes."""
         src = specific_values.get("src")
         dst = specific_values.get("dst")
@@ -193,7 +195,7 @@ class TrafficGenerator:
         )
 
     @staticmethod
-    def _get_isps_com_multiplos_nodes(topology: "Topology") -> list[int]:
+    def _get_isps_com_multiplos_nodes(topology: Topology) -> list[int]:
         """Get ISPs that have at least 2 nodes for subnet traffic generation.
 
         Args:
@@ -217,7 +219,7 @@ class TrafficGenerator:
         ]
 
     @staticmethod
-    def _get_nodes_da_isp(topology: "Topology", isp_id: int) -> list[int]:
+    def _get_nodes_da_isp(topology: Topology, isp_id: int) -> list[int]:
         """Get all nodes that belong to a specific ISP.
 
         Args:
@@ -235,10 +237,10 @@ class TrafficGenerator:
 
     @staticmethod
     def gerar_lista_de_requisicoes(
-        topology: "Topology",
+        topology: Topology,
         numero_de_requisicoes: int,
-        lista_de_isps: list["ISP"],
-        desastre: "Disaster",
+        lista_de_isps: list[ISP],
+        desastre: Disaster,
         trafego_subrede: bool = True,
     ) -> list[Request]:
         """Generate a list of network requests including datacenter requests.
@@ -283,9 +285,9 @@ class TrafficGenerator:
 
     @staticmethod
     def gerar_lista_de_requisicoes_datacenter(
-        datacenter: "Datacenter",
-        desastre: "Disaster",
-        topologia: "Topology",
+        datacenter: Datacenter,
+        desastre: Disaster,
+        topologia: Topology,
         isp_id: int,
     ) -> list[Request]:
         tempo_de_criacao = datacenter.tempo_de_reacao

@@ -4,6 +4,8 @@ This module provides centralized path computation and management functionality
 that can be used across different components (Topology, ISP, etc.).
 """
 
+from __future__ import annotations
+
 from itertools import islice
 
 import networkx as nx

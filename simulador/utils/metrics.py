@@ -4,6 +4,8 @@ Contains the Metrics singleton class that manages statistics during network
 simulation including request counting, blocking rates, and sliding window analysis.
 """
 
+from __future__ import annotations
+
 import json
 from collections import defaultdict
 from collections.abc import Generator
@@ -36,7 +38,7 @@ class Metrics:
     across the entire simulation.
     """
 
-    instance: "Metrics | None" = None
+    instance: Metrics | None = None
 
     def __init__(self) -> None:
         """Initialize the Metrics with default metrics and counters.
@@ -121,7 +123,7 @@ class Metrics:
         self.sim_finalizada: bool = False
 
     @staticmethod
-    def get_intance() -> "Metrics":
+    def get_intance() -> Metrics:
         """Get the singleton instance of Metrics.
 
         Creates a new instance if none exists, otherwise returns the existing one.

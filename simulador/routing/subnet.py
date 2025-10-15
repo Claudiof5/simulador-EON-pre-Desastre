@@ -4,6 +4,8 @@ This module implements routing logic that ensures traffic only uses
 nodes belonging to the same ISP (Internet Service Provider).
 """
 
+from __future__ import annotations
+
 import math
 from typing import TYPE_CHECKING
 
@@ -11,7 +13,6 @@ from simpy import Environment
 
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
-from simulador.routing.first_fit import FirstFit
 from simulador.utils.metrics import Metrics
 
 if TYPE_CHECKING:
@@ -28,7 +29,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Route a request within the same ISP subnet.
 
@@ -40,7 +41,7 @@ class FirstFitSubnet(RoutingBase):
         Returns:
             bool: True if routing successful, False otherwise
         """
-        requisicao_roteada_com_sucesso = FirstFit.__rotear_requisicao(
+        requisicao_roteada_com_sucesso = FirstFitSubnet.__rotear_requisicao(
             requisicao, topology, env
         )
         if requisicao_roteada_com_sucesso:
@@ -51,7 +52,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def rerotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Reroute a request within the same ISP subnet.
 
@@ -67,7 +68,7 @@ class FirstFitSubnet(RoutingBase):
             requisicao.retorna_tupla_chave_dicionario_dos_atributos()
         )
 
-        requisicao_roteada_com_sucesso = FirstFit.__rotear_requisicao(
+        requisicao_roteada_com_sucesso = FirstFitSubnet.__rotear_requisicao(
             requisicao, topology, env
         )
 
@@ -79,7 +80,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def __rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Internal method to route a request within subnet constraints.
 
@@ -92,10 +93,10 @@ class FirstFitSubnet(RoutingBase):
             bool: True if routing successful, False otherwise
         """
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = (
-            FirstFit.__retorna_informacoes_datapaths(requisicao, topology)
+            FirstFitSubnet.__retorna_informacoes_datapaths(requisicao, topology)
         )
         if pelo_menos_uma_janela_habil:
-            FirstFit.__aloca_requisicao(
+            FirstFitSubnet.__aloca_requisicao(
                 requisicao, topology, informacoes_dos_datapaths, env
             )
             return True
@@ -106,7 +107,7 @@ class FirstFitSubnet(RoutingBase):
     @staticmethod
     def __aloca_requisicao(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapaths: list[dict],
         env: Environment,
     ) -> None:
@@ -123,7 +124,7 @@ class FirstFitSubnet(RoutingBase):
                 informacoes_datapath["maior_janela_contigua_continua"]
                 >= informacoes_datapath["numero_slots_necessarios"]
             ):
-                FirstFit.__aloca_datapath(
+                FirstFitSubnet.__aloca_datapath(
                     requisicao, topology, informacoes_datapath, env
                 )
                 break
@@ -131,7 +132,7 @@ class FirstFitSubnet(RoutingBase):
     @staticmethod
     def __aloca_datapath(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapath: dict,
         env: Environment,
     ) -> None:
@@ -181,7 +182,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def __retorna_informacoes_datapaths(
-        requisicao: Request, topology: "Topology"
+        requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool]:
         """Return information about available datapaths for subnet routing.
 
@@ -210,12 +211,12 @@ class FirstFitSubnet(RoutingBase):
 
                 distancia = informacoes_caminho["distancia"]
                 fator_de_modulacao = informacoes_caminho["fator_de_modulacao"]
-                numero_slots_necessarios = FirstFit.__slots_nescessarios(
+                numero_slots_necessarios = FirstFitSubnet.__slots_nescessarios(
                     requisicao.bandwidth, fator_de_modulacao
                 )
 
                 lista_de_inicios_e_fins, maior_janela_caminho = (
-                    FirstFit.informacoes_sobre_slots(caminho, topology)
+                    FirstFitSubnet.informacoes_sobre_slots(caminho, topology)
                 )
 
                 dados_do_caminho = {
@@ -241,7 +242,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def _get_caminhos_from_isp(
-        requisicao: Request, topology: "Topology", isp_id: int
+        requisicao: Request, topology: Topology, isp_id: int
     ) -> list[dict]:
         """Get precomputed paths from ISP if available.
 
@@ -263,7 +264,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def _get_caminhos_from_topology_filtered(
-        requisicao: Request, topology: "Topology", isp_id: int
+        requisicao: Request, topology: Topology, isp_id: int
     ) -> tuple[list[dict], bool]:
         """Get paths from topology with ISP filtering (fallback method).
 
@@ -295,12 +296,12 @@ class FirstFitSubnet(RoutingBase):
 
             distancia = informacoes_caminho["distancia"]
             fator_de_modulacao = informacoes_caminho["fator_de_modulacao"]
-            numero_slots_necessarios = FirstFit.__slots_nescessarios(
+            numero_slots_necessarios = FirstFitSubnet.__slots_nescessarios(
                 requisicao.bandwidth, fator_de_modulacao
             )
 
             lista_de_inicios_e_fins, maior_janela_caminho = (
-                FirstFit.informacoes_sobre_slots(caminho, topology)
+                FirstFitSubnet.informacoes_sobre_slots(caminho, topology)
             )
 
             dados_do_caminho = {
@@ -321,7 +322,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def informacoes_sobre_slots(
-        caminho, topology: "Topology"
+        caminho, topology: Topology
     ) -> tuple[list[tuple[int, int]], int]:
         """Get information about available slots in a path.
 
@@ -338,7 +339,7 @@ class FirstFitSubnet(RoutingBase):
         maior_janela = 0
 
         for i in range(topology.numero_de_slots):
-            if FirstFit.__checa_concurrency_slot(caminho, topology, i):
+            if FirstFitSubnet.__checa_concurrency_slot(caminho, topology, i):
                 if not last_slot_was_free:
                     current_start = i
                     last_slot_was_free = True
@@ -360,7 +361,7 @@ class FirstFitSubnet(RoutingBase):
 
     @staticmethod
     def __checa_concurrency_slot(
-        caminho: list, topology: "Topology", indice: int
+        caminho: list, topology: Topology, indice: int
     ) -> bool:
         """Check if a slot is available across all links in the path.
 
@@ -391,9 +392,7 @@ class FirstFitSubnet(RoutingBase):
         return int(math.ceil(float(demanda) / fator_modulacao))
 
     @staticmethod
-    def _caminho_pertence_a_isp(
-        caminho: list, topology: "Topology", isp_id: int
-    ) -> bool:
+    def _caminho_pertence_a_isp(caminho: list, topology: Topology, isp_id: int) -> bool:
         """Verify if all nodes in the path belong to the specified ISP.
 
         Args:

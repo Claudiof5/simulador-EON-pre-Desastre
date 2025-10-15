@@ -4,6 +4,8 @@ This module contains the ISP class that represents an Internet Service Provider
 with its own nodes, edges, datacenters, and routing strategies.
 """
 
+from __future__ import annotations
+
 from collections.abc import Generator
 from itertools import islice
 from typing import TYPE_CHECKING
@@ -19,12 +21,11 @@ from simulador.config.settings import (
     FATOR_MODULACAO_3,
     FATOR_MODULACAO_4,
 )
-from simulador.entities.datacenter import Datacenter
-from simulador.generators.datacenter_generator import DatacenterGenerator
 from simulador.routing.base import RoutingBase
 from simulador.routing.first_fit import FirstFit
 
 if TYPE_CHECKING:
+    from simulador.entities.datacenter import Datacenter
     from simulador.entities.disaster import Disaster
     from simulador.main import Simulator
 
@@ -68,13 +69,15 @@ class ISP:
         ] = {}
 
     def define_datacenter(
-        self, disaster: "Disaster", topology: nx.Graph, specific_values=None
+        self, disaster: Disaster, topology: nx.Graph, specific_values=None
     ) -> None:
+        from simulador.generators.datacenter_generator import DatacenterGenerator
+
         self.datacenter = DatacenterGenerator.gerar_datacenter(
             disaster, topology, self.nodes, specific_values
         )
 
-    def iniciar_migracao(self, simulador: "Simulator") -> Generator:
+    def iniciar_migracao(self, simulador: Simulator) -> Generator:
         if self.datacenter is None:
             return
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
@@ -93,7 +96,7 @@ class ISP:
             print("Datacenter source: ", self.datacenter.source)
             print("Datacenter destination: ", self.datacenter.destination)
 
-    def troca_roteamento_desastre(self, roteamento: type["RoutingBase"]) -> None:
+    def troca_roteamento_desastre(self, roteamento: type[RoutingBase]) -> None:
         """Change the disaster routing method.
 
         Args:

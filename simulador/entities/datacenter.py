@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from collections.abc import Generator
 from random import expovariate
 from typing import TYPE_CHECKING
@@ -6,7 +8,6 @@ import simpy
 
 from simulador.config.settings import BANDWIDTH
 from simulador.core.request import Request
-from simulador.generators.traffic_generator import TrafficGenerator
 from simulador.routing.base import RoutingBase
 from simulador.utils.logger import Logger
 from simulador.utils.metrics import Metrics
@@ -42,10 +43,10 @@ class Datacenter:
         self.throughput_por_segundo: float = throughput_por_segundo
         self.lista_de_requisicoes: list[Request] | None = None
 
-    def iniciar_migracao(self, simulador: "Simulator", isp: "ISP") -> None:
+    def iniciar_migracao(self, simulador: Simulator, isp: ISP) -> None:
         simulador.env.process(self.__migrar(simulador, isp))
 
-    def __migrar(self, simulador: "Simulator", isp: "ISP") -> Generator:
+    def __migrar(self, simulador: Simulator, isp: ISP) -> Generator:
         Logger.mensagem_inicia_migracao(
             isp.isp_id, self.source, self.destination, int(simulador.env.now)
         )
@@ -84,8 +85,10 @@ class Datacenter:
         )
 
     def gerar_requisicao(
-        self, req_id: int, topologia: "Topology", isp_id: int
+        self, req_id: int, topologia: Topology, isp_id: int
     ) -> Request:
+        from simulador.generators.traffic_generator import TrafficGenerator
+
         dict_values = {
             "src": int(self.source),
             "dst": int(self.destination),
@@ -101,7 +104,7 @@ class Datacenter:
         return requisicao
 
     def pega_requisicao(
-        self, req_id: int, simulador: "Simulator", isp_id: int
+        self, req_id: int, simulador: Simulator, isp_id: int
     ) -> Request:
         if self.lista_de_requisicoes:
             return self.lista_de_requisicoes.pop(0)

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import pickle
 from copy import deepcopy
@@ -61,7 +63,7 @@ class Scenario:
             pickle.dump(self, f)
 
     @staticmethod
-    def carrega_cenario(caminho: str) -> "Scenario":
+    def carrega_cenario(caminho: str) -> Scenario:
         print(os.getcwd())
         with open(f"{caminho}", "rb") as f:
             return cast("Scenario", pickle.load(f))

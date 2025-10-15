@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from itertools import combinations
 
 import networkx as nx
@@ -85,7 +87,7 @@ class ISPGenerator:
     def gerar_lista_isps_aleatorias(
         topology: nx.Graph,
         numero_de_isps: int,
-        roteamento_de_desastre: type["RoutingBase"],
+        roteamento_de_desastre: type[RoutingBase],
         computar_caminhos_internos: bool = True,
         numero_de_caminhos: int = 3,
         node_desastre: int | None = None,

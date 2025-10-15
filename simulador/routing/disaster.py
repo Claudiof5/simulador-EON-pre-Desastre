@@ -12,18 +12,19 @@ if TYPE_CHECKING:
 class FirstFitDisaster(RoutingBase):
     @staticmethod
     def rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        _requisicao: Request, _topology: "Topology", _env: Environment
     ) -> bool:
         # TODO: Implement disaster routing logic
         return False
 
     @staticmethod
     def rerotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        _requisicao: Request, _topology: "Topology", _env: Environment
     ) -> bool:
         # TODO: Implement disaster rerouting logic
         return False
 
     @staticmethod
     def __str__() -> str:
+        """Return the string representation of the disaster routing class."""
         return "FirstFitDisaster"

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 from typing import TYPE_CHECKING
 
@@ -19,7 +21,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         requisicao_roteada_com_sucesso = FirstFitBestFit.__rotear_requisicao(
             requisicao, topology, env
@@ -32,7 +34,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def rerotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         requisicao.dados_pre_reroteamento = (
             requisicao.retorna_tupla_chave_dicionario_dos_atributos()
@@ -49,7 +51,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def __rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         (
             informacoes_dos_datapaths,
@@ -71,7 +73,7 @@ class FirstFitBestFit(RoutingBase):
     @staticmethod
     def __aloca_requisicao(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapaths: list[dict],
         env: Environment,
         indice_melhor_caminho: int,
@@ -84,7 +86,7 @@ class FirstFitBestFit(RoutingBase):
     @staticmethod
     def __aloca_datapath(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapath: dict,
         env: Environment,
     ) -> None:
@@ -111,7 +113,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def __retorna_informacoes_datapaths(
-        requisicao: Request, topology: "Topology"
+        requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool, int | None]:
         caminhos = topology.caminhos_mais_curtos_entre_links[int(requisicao.src)][
             int(requisicao.dst)
@@ -177,7 +179,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def informacoes_sobre_slots(
-        caminho, topology: "Topology", numero_slots_nescessarios: int
+        caminho, topology: Topology, numero_slots_nescessarios: int
     ) -> tuple[list[tuple[int, int]], int | None, int | None]:
         lista_de_inicios_e_fins = []
         current_start: int | None = None
@@ -221,7 +223,7 @@ class FirstFitBestFit(RoutingBase):
 
     @staticmethod
     def __checa_concurrency_slot(
-        caminho: list, topology: "Topology", indice: int
+        caminho: list, topology: Topology, indice: int
     ) -> bool:
         for i in range(0, (len(caminho) - 1)):
             if topology.topology[caminho[i]][caminho[i + 1]]["slots"][indice] != 0:

@@ -4,6 +4,8 @@ This module implements routing logic that ensures traffic only uses
 nodes belonging to the same ISP and avoids disaster-affected nodes.
 """
 
+from __future__ import annotations
+
 import math
 from typing import TYPE_CHECKING
 
@@ -27,7 +29,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Route a request within the same ISP subnet avoiding disaster nodes.
 
@@ -50,7 +52,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def rerotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Reroute a request within the same ISP subnet avoiding disaster nodes.
 
@@ -78,7 +80,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def __rotear_requisicao(
-        requisicao: Request, topology: "Topology", env: Environment
+        requisicao: Request, topology: Topology, env: Environment
     ) -> bool:
         """Internal method to route a request within subnet constraints avoiding disasters.
 
@@ -107,7 +109,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
     @staticmethod
     def __aloca_requisicao(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapaths: list[dict],
         env: Environment,
     ) -> None:
@@ -132,7 +134,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
     @staticmethod
     def __aloca_datapath(
         requisicao: Request,
-        topology: "Topology",
+        topology: Topology,
         informacoes_datapath: dict,
         env: Environment,
     ) -> None:
@@ -181,7 +183,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def __retorna_informacoes_datapaths(
-        requisicao: Request, topology: "Topology"
+        requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool]:
         """Return information about available datapaths for subnet routing avoiding disasters.
 
@@ -240,7 +242,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def _get_caminhos_desastre_from_isp(
-        requisicao: Request, topology: "Topology", isp_id: int
+        requisicao: Request, topology: Topology, isp_id: int
     ) -> list[dict]:
         """Get precomputed disaster-aware paths from ISP if available.
 
@@ -262,7 +264,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def _get_caminhos_from_isp(
-        requisicao: Request, topology: "Topology", isp_id: int
+        requisicao: Request, topology: Topology, isp_id: int
     ) -> list[dict]:
         """Get precomputed regular paths from ISP if available.
 
@@ -284,7 +286,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def _processar_caminhos_isp(
-        caminhos_isp: list[dict], requisicao: Request, topology: "Topology"
+        caminhos_isp: list[dict], requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool]:
         """Process ISP precomputed paths.
 
@@ -334,7 +336,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def _processar_caminhos_topology(
-        caminhos: list[dict], requisicao: Request, topology: "Topology", isp_id: int
+        caminhos: list[dict], requisicao: Request, topology: Topology, isp_id: int
     ) -> tuple[list[dict], bool]:
         """Process topology-wide paths with ISP filtering.
 
@@ -391,7 +393,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def informacoes_sobre_slots(
-        caminho, topology: "Topology"
+        caminho, topology: Topology
     ) -> tuple[list[tuple[int, int]], int]:
         """Get information about available slots in a path.
 
@@ -432,7 +434,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def __checa_concurrency_slot(
-        caminho: list, topology: "Topology", indice: int
+        caminho: list, topology: Topology, indice: int
     ) -> bool:
         """Check if a slot is available across all links in the path.
 
@@ -464,7 +466,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
     @staticmethod
     def __caminho_pertence_a_isp(
-        caminho: list, topology: "Topology", isp_id: int
+        caminho: list, topology: Topology, isp_id: int
     ) -> bool:
         """Verify if all nodes in the path belong to the specified ISP.
 
