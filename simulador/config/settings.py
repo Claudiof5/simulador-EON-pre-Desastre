@@ -23,9 +23,40 @@ SLOT_SIZE: float = 12.5
 __NUMERO_DE_EDGES_DA_TOPOLOGIA: int = 43
 __CAPACIDADE_MAXIMA_DA_REDE: int = NUMERO_DE_SLOTS * __NUMERO_DE_EDGES_DA_TOPOLOGIA
 
-ERLANGS: float = 110
+# Traffic load calculation based on topology analysis
+# Analysis results: avg path length = 3 hops, avg modulation = 1.45x
+_AVG_BANDWIDTH = sum(BANDWIDTH) / len(BANDWIDTH)  # 250 Gbps
+_AVG_PATH_LENGTH = 3.0  # Average hops per path (from topology analysis)
+_AVG_MODULATION = 1.45  # Average modulation factor (from distance analysis)
+
+# Formula: slots_per_request = (bandwidth / (modulation * SLOT_SIZE)) * path_length
+# Higher modulation factor = fewer slots needed (better spectral efficiency)
+_AVG_SLOTS_PER_LINK = _AVG_BANDWIDTH / (
+    _AVG_MODULATION * SLOT_SIZE
+)  # ~13.8 slots per link
+_AVG_SLOTS_PER_REQUEST = _AVG_SLOTS_PER_LINK * _AVG_PATH_LENGTH  # ~41.4 slot-hops
+
+# Target network utilization (0.6 = 60%, 0.7 = 70%, 0.8 = 80%)
+_TARGET_UTILIZATION = 0.8  # Conservative: expect 10-20% blocking rate
+# _TARGET_UTILIZATION = 0.7  # Moderate: expect 20-30% blocking rate
+# _TARGET_UTILIZATION = 0.8  # High: expect 30-40% blocking rate
+
+# Calculate Erlangs (average concurrent requests)
+ERLANGS: float = (
+    __CAPACIDADE_MAXIMA_DA_REDE * _TARGET_UTILIZATION
+) / _AVG_SLOTS_PER_REQUEST
 REQUISICOES_POR_SEGUNDO: float = ERLANGS / HOLDING_TIME
-NUMERO_DE_REQUISICOES: int = 150000
+
+# Simulation duration (in seconds)
+# The simulation will run until this time or all requests are processed
+SIMULATION_DURATION: float = 1200  # 20 minutes (default)
+# SIMULATION_DURATION: float = 900   # 15 minutes
+# SIMULATION_DURATION: float = 1800  # 30 minutes
+
+# Calculate number of requests based on simulation duration and request rate
+# This ensures enough requests are generated to fill the simulation time
+NUMERO_DE_REQUISICOES: int = int(SIMULATION_DURATION * REQUISICOES_POR_SEGUNDO)
+
 numero_de_isps: int = 5
 
 
@@ -36,11 +67,28 @@ VARIANCIA_DURACAO_DESASTRE: float = DURACAO_DESASTRE * 0.1
 
 
 # Quanto aos datacenters
-# THROUGHPUT                   :float = REQUISITADO_DA_REDE_POR_SEGUNDO * 0.025
-THROUGHPUT: float = __CAPACIDADE_MAXIMA_DA_REDE * 0.025
-VARIANCIA_THROUGPUT: float = THROUGHPUT * 0.1
-TEMPO_DE_REACAO: int = 300
+# MIGRATION_NETWORK_FRACTION: What fraction of network capacity can ALL datacenters
+# use for migration traffic (e.g., 0.2 = 20% of network capacity for migration)
+MIGRATION_NETWORK_FRACTION: float = 0.20  # 20% of network for ALL migration traffic
+
+# Calculate throughput in SLOTS per second for each datacenter
+# Total migration capacity in requests/s
+_TOTAL_MIGRATION_REQ_PER_SEC = REQUISICOES_POR_SEGUNDO * MIGRATION_NETWORK_FRACTION
+
+# Each ISP gets equal share of migration capacity
+_PER_ISP_MIGRATION_REQ_PER_SEC = _TOTAL_MIGRATION_REQ_PER_SEC / numero_de_isps
+
+# Convert to slots/s using average slot consumption
+# This represents how many slots per second each datacenter can push through the network
+THROUGHPUT: float = _PER_ISP_MIGRATION_REQ_PER_SEC * _AVG_SLOTS_PER_REQUEST
+VARIANCIA_THROUGHPUT: float = THROUGHPUT * 0.1
+
+# Reaction time: how long before datacenter starts migration after disaster
+TEMPO_DE_REACAO: int = 300  # seconds (5 minutes)
 VARIANCIA_TEMPO_DE_REACAO: float = TEMPO_DE_REACAO * 0.15
+
+# Datacenter storage capacity: buffer to store data during migration
+# Can store 75% of what would be processed during reaction time
 TAMANHO_DATACENTER: float = THROUGHPUT * TEMPO_DE_REACAO * 0.75
 VARIANCIA_TAMANHO_DATACENTER: float = TAMANHO_DATACENTER * 0.1
 

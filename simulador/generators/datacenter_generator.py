@@ -9,7 +9,7 @@ from simulador.config.settings import (
     THROUGHPUT,
     VARIANCIA_TAMANHO_DATACENTER,
     VARIANCIA_TEMPO_DE_REACAO,
-    VARIANCIA_THROUGPUT,
+    VARIANCIA_THROUGHPUT,
 )
 
 if TYPE_CHECKING:
@@ -49,7 +49,7 @@ class DatacenterGenerator:
             tamanho_datacenter = np.random.normal(
                 TAMANHO_DATACENTER, VARIANCIA_TAMANHO_DATACENTER
             )
-            througput_datacenter = np.random.normal(THROUGHPUT, VARIANCIA_THROUGPUT)
+            througput_datacenter = np.random.normal(THROUGHPUT, VARIANCIA_THROUGHPUT)
             return Datacenter(
                 datacenter_source,
                 datacenter_destination,

@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING
 
 from simpy import Environment
 
+from simulador.config.settings import SLOT_SIZE
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
 from simulador.utils.metrics import Metrics
@@ -208,4 +209,18 @@ class FirstFit(RoutingBase):
 
     @staticmethod
     def __slots_nescessarios(demanda, fator_modulacao) -> int:
-        return int(math.ceil(float(demanda) / fator_modulacao))
+        """Calculate number of slots needed for a given demand and modulation factor.
+
+        Formula: slots = ceil(bandwidth / (modulation_factor * SLOT_SIZE))
+        - Higher modulation factors (short distance) = FEWER slots (higher efficiency)
+        - Lower modulation factors (long distance) = MORE slots (lower efficiency)
+        - SLOT_SIZE is the bandwidth per slot (12.5 Gbps)
+
+        Args:
+            demanda: Bandwidth demand in Gbps
+            fator_modulacao: Modulation factor (1=low, 2, 3, 4=high efficiency)
+
+        Returns:
+            int: Number of slots required
+        """
+        return int(math.ceil(float(demanda) / (fator_modulacao * SLOT_SIZE)))

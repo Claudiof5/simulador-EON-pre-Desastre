@@ -6,6 +6,7 @@ from typing import TYPE_CHECKING
 
 from simpy import Environment
 
+from simulador.config.settings import SLOT_SIZE
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
 from simulador.utils.metrics import Metrics
@@ -267,4 +268,9 @@ class FirstFitEvitandoNodesPreDisasterComBloqueio(RoutingBase):
 
     @staticmethod
     def __slots_nescessarios(demanda, fator_modulacao) -> int:
-        return int(math.ceil(float(demanda) / fator_modulacao))
+        """Calculate number of slots needed for a given demand and modulation factor.
+
+        Formula: slots = ceil(bandwidth / (modulation_factor * SLOT_SIZE))
+        Higher modulation = fewer slots needed
+        """
+        return int(math.ceil(float(demanda) / (fator_modulacao * SLOT_SIZE)))
