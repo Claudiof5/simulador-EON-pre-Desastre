@@ -11,6 +11,7 @@ from simulador.config.settings import (
     CLASS_WEIGHT,
     HOLDING_TIME,
     REQUISICOES_POR_SEGUNDO,
+    SLOT_SIZE,
 )
 from simulador.core.request import Request
 from simulador.utils.metrics import Metrics
@@ -290,12 +291,25 @@ class TrafficGenerator:
         topologia: Topology,
         isp_id: int,
     ) -> list[Request]:
+        """Generate migration requests before disaster.
+
+        Note: This only generates requests. The actual 100% migration tracking
+        must be done during request processing where we know if requests are
+        blocked or successfully allocated.
+
+        Migration starts at tempo_de_reacao and continues until disaster starts.
+        """
         tempo_de_criacao = datacenter.tempo_de_reacao
         req_id = 0
         lista_de_requisicoes = []
-        taxa_mensagens = datacenter.throughput_por_segundo / (
-            sum(BANDWIDTH) / len(BANDWIDTH)
-        )
+
+        # Calculate request rate based on throughput and average bandwidth
+        avg_bandwidth = sum(BANDWIDTH) / len(BANDWIDTH)
+        avg_slots_per_request = avg_bandwidth / SLOT_SIZE
+        taxa_mensagens = datacenter.throughput_por_segundo / avg_slots_per_request
+
+        # Generate requests until disaster starts
+        # Note: 100% migration control must happen at allocation time, not here
         while tempo_de_criacao < desastre.start:
             dict_values = {
                 "src": int(datacenter.source),
@@ -313,5 +327,4 @@ class TrafficGenerator:
             lista_de_requisicoes.append(requisicao)
             req_id += 1
 
-        # datacenter.lista_de_requisicoes = lista_de_requisicoes
         return lista_de_requisicoes

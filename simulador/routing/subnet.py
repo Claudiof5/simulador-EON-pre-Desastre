@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING
 
 from simpy import Environment
 
+from simulador.config.settings import SLOT_SIZE
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
 from simulador.utils.metrics import Metrics
@@ -383,13 +384,16 @@ class FirstFitSubnet(RoutingBase):
         """Calculate number of slots needed for given demand and modulation.
 
         Args:
-            demanda: Bandwidth demand
-            fator_modulacao: Modulation factor
+            demanda: Bandwidth demand in Gbps
+            fator_modulacao: Modulation factor (1, 2, 3, or 4)
 
         Returns:
             int: Number of slots required
+
+        Formula: slots = ceil(bandwidth / (modulation_factor * SLOT_SIZE))
+        Higher modulation = fewer slots needed
         """
-        return int(math.ceil(float(demanda) / fator_modulacao))
+        return int(math.ceil(float(demanda) / (fator_modulacao * SLOT_SIZE)))
 
     @staticmethod
     def _caminho_pertence_a_isp(caminho: list, topology: Topology, isp_id: int) -> bool:

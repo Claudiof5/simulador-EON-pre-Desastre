@@ -317,3 +317,279 @@ def plot_availability_comparison_summary(
 
     plt.tight_layout()
     return fig
+
+
+def plot_availability_by_isp(
+    dataframe: pd.DataFrame,
+    isp_data: dict[int, dict] | object,
+    disaster_start: float | None = None,
+    disaster_end: float | None = None,
+    figsize: tuple[int, int] = (14, 6),
+) -> plt.Figure:
+    """Plot availability metrics separated by source ISP.
+
+    Args:
+        dataframe: Simulation results with 'src_isp_index', 'bloqueada', 'tempo_criacao' columns
+        isp_data: Either ISP dict {isp_id: {...}} OR Scenario object
+        disaster_start: Optional disaster start time for phase analysis
+        disaster_end: Optional disaster end time for phase analysis
+        figsize: Figure size
+
+    Returns:
+        Matplotlib figure
+    """
+    # Extract ISP IDs from Scenario if needed
+    if hasattr(isp_data, "lista_de_isps"):
+        isp_dict = {}
+        for isp in isp_data.lista_de_isps:
+            isp_dict[isp.isp_id] = {}
+    else:
+        isp_dict = isp_data
+
+    # Calculate availability per ISP
+    isp_stats = {}
+    for isp_id in isp_dict:
+        # Filter dataframe for this ISP's traffic using src_isp_index
+        isp_traffic = dataframe[dataframe["src_isp_index"] == isp_id]
+
+        if len(isp_traffic) > 0:
+            overall_avail = 1.0 - isp_traffic["bloqueada"].mean()
+
+            stats = {"overall": overall_avail, "total_requests": len(isp_traffic)}
+
+            # Phase-wise if disaster times provided
+            if disaster_start is not None and disaster_end is not None:
+                before = isp_traffic[isp_traffic["tempo_criacao"] < disaster_start]
+                during = isp_traffic[
+                    (isp_traffic["tempo_criacao"] >= disaster_start)
+                    & (isp_traffic["tempo_criacao"] < disaster_end)
+                ]
+                after = isp_traffic[isp_traffic["tempo_criacao"] >= disaster_end]
+
+                stats["before"] = (
+                    1.0 - before["bloqueada"].mean() if len(before) > 0 else 0
+                )
+                stats["during"] = (
+                    1.0 - during["bloqueada"].mean() if len(during) > 0 else 0
+                )
+                stats["after"] = (
+                    1.0 - after["bloqueada"].mean() if len(after) > 0 else 0
+                )
+
+            isp_stats[isp_id] = stats
+
+    # Plot
+    if disaster_start is not None and disaster_end is not None:
+        # Phase-wise comparison
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+        isp_ids = list(isp_stats.keys())
+        x = np.arange(len(isp_ids))
+        width = 0.25
+
+        before_vals = [isp_stats[isp]["before"] for isp in isp_ids]
+        during_vals = [isp_stats[isp]["during"] for isp in isp_ids]
+        after_vals = [isp_stats[isp]["after"] for isp in isp_ids]
+
+        ax1.bar(x - width, before_vals, width, label="Before", color="#2ecc71")
+        ax1.bar(x, during_vals, width, label="During", color="#e74c3c")
+        ax1.bar(x + width, after_vals, width, label="After", color="#3498db")
+
+        ax1.set_ylabel("Availability")
+        ax1.set_title("Availability by ISP (Phase-wise)")
+        ax1.set_xticks(x)
+        ax1.set_xticklabels([f"ISP {isp}" for isp in isp_ids])
+        ax1.set_ylim([0, 1.1])
+        ax1.legend()
+        ax1.grid(axis="y", alpha=0.3)
+
+        # Overall availability
+        overall_vals = [isp_stats[isp]["overall"] for isp in isp_ids]
+        bars = ax2.bar(isp_ids, overall_vals, color="#3498db")
+        ax2.set_ylabel("Overall Availability")
+        ax2.set_title("Overall Availability by ISP")
+        ax2.set_xlabel("ISP ID")
+        ax2.set_ylim([0, 1.1])
+        ax2.grid(axis="y", alpha=0.3)
+
+        # Add value labels
+        for bar, val in zip(bars, overall_vals, strict=False):
+            height = bar.get_height()
+            ax2.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 0.02,
+                f"{val:.1%}",
+                ha="center",
+                va="bottom",
+            )
+
+    else:
+        # Overall only
+        fig, ax = plt.subplots(figsize=figsize)
+
+        isp_ids = list(isp_stats.keys())
+        overall_vals = [isp_stats[isp]["overall"] for isp in isp_ids]
+
+        bars = ax.bar(isp_ids, overall_vals, color="#3498db")
+        ax.set_ylabel("Availability")
+        ax.set_title("Availability by ISP")
+        ax.set_xlabel("ISP ID")
+        ax.set_ylim([0, 1.1])
+        ax.grid(axis="y", alpha=0.3)
+
+        # Add value labels
+        for bar, val in zip(bars, overall_vals, strict=False):
+            height = bar.get_height()
+            ax.text(
+                bar.get_x() + bar.get_width() / 2.0,
+                height + 0.02,
+                f"{val:.1%}",
+                ha="center",
+                va="bottom",
+            )
+
+    plt.tight_layout()
+
+
+def plot_availability_by_distance_per_isp(
+    dataframe: pd.DataFrame,
+    topology,
+    isp_data: dict[int, dict] | object,
+    figsize: tuple[int, int] = (14, 6),
+) -> plt.Figure:
+    """Plot availability by distance, separated by source ISP.
+
+    Args:
+        dataframe: Simulation results
+        topology: Network topology
+        isp_data: Either ISP dict OR Scenario object
+        figsize: Figure size
+
+    Returns:
+        Matplotlib figure
+    """
+    # Extract ISP IDs
+    if hasattr(isp_data, "lista_de_isps"):
+        isp_dict = {}
+        for isp in isp_data.lista_de_isps:
+            isp_dict[isp.isp_id] = {}
+    else:
+        isp_dict = isp_data
+
+    fig, ax = plt.subplots(figsize=figsize)
+
+    colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6"]
+
+    for idx, isp_id in enumerate(isp_dict):
+        # Filter for this ISP's traffic using src_isp_index
+        isp_traffic = dataframe[dataframe["src_isp_index"] == isp_id]
+
+        if len(isp_traffic) == 0:
+            continue
+
+        # Calculate availability by distance for this ISP
+        avail_by_dist = metrics_calculator.calculate_availability_by_distance(
+            isp_traffic, topology
+        )
+
+        distances = sorted(avail_by_dist.keys())
+        availabilities = [avail_by_dist[d] for d in distances]
+
+        color = colors[idx % len(colors)]
+        ax.plot(
+            distances,
+            availabilities,
+            marker="o",
+            label=f"ISP {isp_id}",
+            linewidth=2,
+            color=color,
+        )
+
+    ax.set_xlabel("Distance (hops)")
+    ax.set_ylabel("Availability")
+    ax.set_title("Availability by Distance - Per ISP")
+    ax.set_ylim([0, 1.1])
+    ax.legend()
+    ax.grid(alpha=0.3)
+
+    plt.tight_layout()
+
+
+def plot_isp_traffic_comparison(
+    dataframe: pd.DataFrame,
+    isp_data: dict[int, dict] | object,
+    figsize: tuple[int, int] = (14, 6),
+) -> plt.Figure:
+    """Compare traffic volume and blocking rates across ISPs.
+
+    Args:
+        dataframe: Simulation results
+        isp_data: Either ISP dict OR Scenario object
+        figsize: Figure size
+
+    Returns:
+        Matplotlib figure
+    """
+    # Extract ISP IDs
+    if hasattr(isp_data, "lista_de_isps"):
+        isp_dict = {}
+        for isp in isp_data.lista_de_isps:
+            isp_dict[isp.isp_id] = {}
+    else:
+        isp_dict = isp_data
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+    isp_ids = []
+    total_requests = []
+    blocked_requests = []
+    blocking_rates = []
+
+    for isp_id in isp_dict:
+        # Filter for this ISP's traffic using src_isp_index
+        isp_traffic = dataframe[dataframe["src_isp_index"] == isp_id]
+
+        if len(isp_traffic) > 0:
+            isp_ids.append(isp_id)
+            total = len(isp_traffic)
+            blocked = isp_traffic["bloqueada"].sum()
+
+            total_requests.append(total)
+            blocked_requests.append(blocked)
+            blocking_rates.append(blocked / total if total > 0 else 0)
+
+    # Traffic volume
+    x = np.arange(len(isp_ids))
+    width = 0.35
+
+    ax1.bar(x - width / 2, total_requests, width, label="Total", color="#3498db")
+    ax1.bar(x + width / 2, blocked_requests, width, label="Blocked", color="#e74c3c")
+
+    ax1.set_ylabel("Number of Requests")
+    ax1.set_title("Traffic Volume by ISP")
+    ax1.set_xlabel("ISP ID")
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([f"ISP {isp}" for isp in isp_ids])
+    ax1.legend()
+    ax1.grid(axis="y", alpha=0.3)
+
+    # Blocking rate
+    bars = ax2.bar(isp_ids, blocking_rates, color="#e74c3c")
+    ax2.set_ylabel("Blocking Rate")
+    ax2.set_title("Blocking Rate by ISP")
+    ax2.set_xlabel("ISP ID")
+    ax2.set_ylim([0, max(blocking_rates) * 1.2 if blocking_rates else 1])
+    ax2.grid(axis="y", alpha=0.3)
+
+    # Add percentage labels
+    for bar, rate in zip(bars, blocking_rates, strict=False):
+        height = bar.get_height()
+        ax2.text(
+            bar.get_x() + bar.get_width() / 2.0,
+            height + 0.01,
+            f"{rate:.1%}",
+            ha="center",
+            va="bottom",
+        )
+
+    plt.tight_layout()

@@ -13,6 +13,177 @@ import pandas as pd
 from simulador.analysis import metrics_calculator
 
 
+def add_disaster_and_migration_markers(
+    ax: plt.Axes,
+    scenario: object | None = None,
+    disaster_start: float | None = None,
+    disaster_end: float | None = None,
+    migration_times: list[tuple[float, int]] | None = None,
+    show_legend: bool = True,
+) -> None:
+    """Add vertical lines marking disaster and migration events to a plot.
+
+    Args:
+        ax: Matplotlib axes to add markers to
+        scenario: Optional Scenario object to auto-extract timing info
+        disaster_start: Manual disaster start time (overrides scenario)
+        disaster_end: Manual disaster end time (overrides scenario)
+        migration_times: List of (time, isp_id) tuples for migration events
+        show_legend: Whether to show legend for markers
+    """
+    # Extract disaster timing from scenario if needed
+    if scenario is not None and hasattr(scenario, "desastre"):
+        if disaster_start is None and hasattr(scenario.desastre, "start"):
+            disaster_start = scenario.desastre.start
+
+        if disaster_end is None and hasattr(scenario.desastre, "duration"):
+            disaster_end = scenario.desastre.start + scenario.desastre.duration
+
+    # Extract migration times from scenario if needed
+    if (
+        migration_times is None
+        and scenario is not None
+        and hasattr(scenario, "lista_de_isps")
+    ):
+        migration_times = _extract_migration_times(scenario.lista_de_isps)
+
+    # Add disaster markers
+    if disaster_start is not None:
+        ax.axvline(
+            disaster_start,
+            color="black",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label="Disaster Start",
+        )
+
+    if disaster_end is not None:
+        ax.axvline(
+            disaster_end,
+            color="black",
+            linestyle="--",
+            linewidth=1,
+            alpha=0.7,
+            label="Disaster End",
+        )
+
+    # Add migration markers
+    if migration_times:
+        for idx, (time, _) in enumerate(migration_times):
+            label = "Migration Start" if idx == 0 else None
+            ax.axvline(
+                time,
+                color="red",
+                linestyle="--",
+                linewidth=1,
+                alpha=0.5,
+                label=label,
+            )
+
+    # Add legend if markers were added and legend doesn't exist
+    has_markers = disaster_start or disaster_end or migration_times
+    if show_legend and has_markers and ax.get_legend() is None:
+        ax.legend()
+
+
+def _extract_migration_times(lista_de_isps) -> list[tuple[float, int]]:
+    """Extract migration times from list of ISPs."""
+    migration_times = []
+    for isp in lista_de_isps:
+        has_datacenter = hasattr(isp, "datacenter") and isp.datacenter is not None
+        has_reaction_time = has_datacenter and hasattr(
+            isp.datacenter, "tempo_de_reacao"
+        )
+        if has_reaction_time:
+            migration_times.append((isp.datacenter.tempo_de_reacao, isp.isp_id))
+    return migration_times
+
+
+def _calculate_usage_at_time_points(
+    filtered_df: pd.DataFrame,
+    time_points: np.ndarray,
+    total_slots: int,
+    isp_id: int | None = None,
+) -> list[float]:
+    """Calculate network usage at each time point.
+
+    Args:
+        filtered_df: DataFrame with slots_used, tempo_criacao, tempo_desalocacao columns
+        time_points: Array of time points to sample
+        total_slots: Total number of slots in the network
+        isp_id: If provided, only count requests from this ISP (uses src_isp_index column)
+
+    Returns:
+        List of usage values (fraction of total slots)
+    """
+    usage = []
+    for t in time_points:
+        mask = (filtered_df["tempo_criacao"] <= t) & (
+            filtered_df["tempo_desalocacao"] > t
+        )
+
+        if isp_id is not None:
+            # Use src_isp_index column to filter by ISP
+            mask = mask & (filtered_df["src_isp_index"] == isp_id)
+
+        current_requisitions = filtered_df[mask]
+        usage.append(current_requisitions["slots_used"].sum() / total_slots)
+
+    return usage
+
+
+def _apply_sliding_window(
+    usage_data: list[float],
+    time_points: np.ndarray,
+    window_points: np.ndarray,
+    window_size: float,
+) -> list[float]:
+    """Apply sliding window averaging to usage data.
+
+    Args:
+        usage_data: Usage values at each time point
+        time_points: Time points corresponding to usage data
+        window_points: Window center points
+        window_size: Size of averaging window
+
+    Returns:
+        Averaged usage values at window points
+    """
+    avg_usage = []
+    for t in window_points:
+        start_time = max(10, t - window_size)
+        end_time = t
+        indices_in_window = (time_points >= start_time) & (time_points <= end_time)
+        avg = np.mean(np.array(usage_data)[indices_in_window])
+        avg_usage.append(avg)
+    return avg_usage
+
+
+def _extract_isp_dict(isp_data: dict | object | None) -> dict[int, dict] | None:
+    """Extract ISP dictionary from various input formats.
+
+    Args:
+        isp_data: Either an ISP dict or a Scenario object
+
+    Returns:
+        ISP dictionary {isp_id: {}} or None (only ISP IDs needed, data uses src_isp_index)
+    """
+    if isp_data is None:
+        return None
+
+    if hasattr(isp_data, "lista_de_isps"):
+        # Extract ISP IDs from Scenario
+        # We don't need node info since we use src_isp_index from dataframe
+        isp_dict = {}
+        for isp in isp_data.lista_de_isps:
+            isp_dict[isp.isp_id] = {}
+        return isp_dict
+
+    # Assume it's already a dict with ISP IDs as keys
+    return isp_data
+
+
 def plot_accumulated_blocked_requests(
     dataframes: dict[str, pd.DataFrame], figsize: tuple[int, int] = (14, 6)
 ) -> plt.Figure:
@@ -43,7 +214,6 @@ def plot_accumulated_blocked_requests(
     ax.grid(alpha=0.3)
 
     plt.tight_layout()
-    return fig
 
 
 def plot_blocked_count_by_bucket(
@@ -118,7 +288,6 @@ def plot_blocking_ratio_by_bucket(
     ax.grid(alpha=0.3)
 
     plt.tight_layout()
-    return fig
 
 
 def plot_blocking_ratio_sliding_window(
@@ -162,75 +331,237 @@ def plot_blocking_ratio_sliding_window(
     return fig
 
 
-def plot_network_usage(
+def plot_blocking_percentage_over_time(
     dataframe: pd.DataFrame,
+    time_window: float = 5.0,
+    scenario: object | None = None,
     disaster_start: float | None = None,
     disaster_end: float | None = None,
+    migration_times: list[tuple[float, int]] | None = None,
     figsize: tuple[int, int] = (14, 6),
 ) -> plt.Figure:
-    """Plot overall network utilization over time.
+    """Plot blocking percentage over time with disaster and migration markers.
 
     Args:
-        dataframe: Simulation results
-        disaster_start: Optional disaster start time for vertical line
-        disaster_end: Optional disaster end time for vertical line
+        dataframe: Simulation results with 'bloqueada' and 'tempo_criacao' columns
+        time_window: Size of time window for averaging (default 30.0 seconds)
+        scenario: Optional Scenario object to auto-extract disaster and migration times
+        disaster_start: Manual disaster start time (overrides scenario)
+        disaster_end: Manual disaster end time (overrides scenario)
+        migration_times: List of (time, isp_id) tuples for migration events
         figsize: Figure size
 
     Returns:
         Matplotlib figure
     """
-    fig, axes = plt.subplots(2, 1, figsize=figsize, sharex=True)
+    # Sort by creation time
+    df_sorted = dataframe.sort_values("tempo_criacao").copy()
 
-    # Group by time
-    df_sorted = dataframe.sort_values("tempo_criacao")
+    # Create time buckets
+    min_time = df_sorted["tempo_criacao"].min()
+    df_sorted["time_bucket"] = (
+        (df_sorted["tempo_criacao"] - min_time) // time_window
+    ).astype(int)
 
-    # Plot 1: Request rate
-    times = df_sorted["tempo_criacao"].values
-    request_rate = np.ones(len(times))
-    for i in range(1, len(times)):
-        dt = times[i] - times[i - 1]
-        request_rate[i] = 1.0 / dt if dt > 0 else 0.0
+    # Calculate blocking percentage per bucket
+    bucket_stats = df_sorted.groupby("time_bucket").agg(
+        {"bloqueada": ["sum", "count"], "tempo_criacao": "mean"}
+    )
 
-    axes[0].plot(times, request_rate, linewidth=1, alpha=0.7)
-    axes[0].set_ylabel("Request Rate")
-    axes[0].set_title("Network Activity Over Time")
-    axes[0].grid(alpha=0.3)
+    bucket_times = bucket_stats[("tempo_criacao", "mean")].values
+    blocked_count = bucket_stats[("bloqueada", "sum")].values
+    total_count = bucket_stats[("bloqueada", "count")].values
+    blocking_percentage = (blocked_count / total_count) * 100
 
-    # Plot 2: Blocking rate (cumulative)
-    blocked = df_sorted["bloqueada"].values
-    cumulative_blocking = np.cumsum(blocked) / np.arange(1, len(blocked) + 1)
+    # Create plot
+    fig, ax = plt.subplots(figsize=figsize)
 
-    axes[1].plot(times, cumulative_blocking, linewidth=2, color="red")
-    axes[1].set_xlabel("Time")
-    axes[1].set_ylabel("Cumulative Blocking Rate")
-    axes[1].set_ylim([0, 1.0])
-    axes[1].grid(alpha=0.3)
+    # Add disaster and migration timing markers
+    add_disaster_and_migration_markers(
+        ax,
+        scenario=scenario,
+        disaster_start=disaster_start,
+        disaster_end=disaster_end,
+        migration_times=migration_times,
+        show_legend=True,
+    )
 
-    # Add disaster markers
-    if disaster_start is not None:
-        for ax in axes:
-            ax.axvline(
-                disaster_start,
-                color="orange",
-                linestyle="--",
-                alpha=0.5,
-                label="Disaster Start",
-            )
-    if disaster_end is not None:
-        for ax in axes:
-            ax.axvline(
-                disaster_end,
-                color="green",
-                linestyle="--",
-                alpha=0.5,
-                label="Disaster End",
-            )
+    # Plot blocking percentage line
+    ax.plot(
+        bucket_times,
+        blocking_percentage,
+        linewidth=2.5,
+        color="#e74c3c",
+        label="Blocking Rate",
+        marker="o",
+        markersize=4,
+    )
 
-    if disaster_start is not None or disaster_end is not None:
-        axes[0].legend()
+    ax.set_xlabel("Tempo (segundos)")
+    ax.set_ylabel("Taxa de Bloqueio (%)")
+    ax.set_title(
+        f"Porcentagem de Requisições Bloqueadas ao Longo do Tempo (janela de {time_window}s)"
+    )
+    ax.set_ylim([0, max(105, blocking_percentage.max() * 1.1)])
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
 
     plt.tight_layout()
-    return fig
+
+
+def plot_network_usage(
+    dataframe: pd.DataFrame,
+    topology,
+    numero_de_slots: int,
+    time_step: float = 0.1,
+    window_size: float = 10,
+    scenario: object | None = None,
+    isp_data: dict[int, dict] | object | None = None,
+    show_per_isp: bool = False,
+    disaster_start: float | None = None,
+    disaster_end: float | None = None,
+    migration_times: list[tuple[float, int]] | None = None,
+    figsize: tuple[int, int] = (14, 6),
+) -> plt.Figure:
+    """Plot average network slot usage over time with sliding window.
+
+    When show_per_isp=True, displays one line per ISP showing their contribution
+    to total network usage. The sum of all ISP lines equals the total line at each
+    time point, since each request is attributed to exactly one ISP based on the
+    'src_isp_index' column.
+
+    Args:
+        dataframe: Simulation results with 'bloqueada', 'numero_de_slots',
+                   'tamanho_do_caminho', 'tempo_criacao', 'tempo_desalocacao',
+                   'src_isp_index' columns
+        topology: Network topology (NetworkX graph)
+        numero_de_slots: Total number of slots per link
+        time_step: Time step for sampling (default 0.1)
+        window_size: Window size for moving average (default 10)
+        scenario: Optional Scenario object to auto-extract disaster and migration times
+        isp_data: ISP dict or Scenario for per-ISP breakdown (required if show_per_isp=True)
+        show_per_isp: If True, show separate lines for each ISP's slot usage
+        disaster_start: Manual disaster start time (overrides scenario)
+        disaster_end: Manual disaster end time (overrides scenario)
+        migration_times: List of (time, isp_id) tuples for migration events
+        figsize: Figure size
+
+    Returns:
+        Matplotlib figure
+
+    Note:
+        All usage values (total and per-ISP) are normalized by the total network
+        capacity (num_links × num_slots). This means:
+        - Total line shows: (sum of all allocated slots) / (total network slots)
+        - ISP k line shows: (sum of ISP k's allocated slots) / (total network slots)
+        - Mathematical property: sum(all ISP lines) = total line at each time point
+    """
+    # Extract ISP data if needed for per-ISP breakdown
+    isp_dict = None
+    if show_per_isp:
+        isp_dict = _extract_isp_dict(isp_data if isp_data is not None else scenario)
+
+    # Filter for non-blocked paths
+    filtered_dataframe = dataframe[~dataframe["bloqueada"]].copy()
+    filtered_dataframe["slots_used"] = (
+        filtered_dataframe["numero_de_slots"] * filtered_dataframe["tamanho_do_caminho"]
+    )
+
+    # Keep src_isp_index column if doing per-ISP analysis
+    if show_per_isp and isp_dict:
+        filtered_dataframe = filtered_dataframe[
+            ["slots_used", "tempo_criacao", "tempo_desalocacao", "src_isp_index"]
+        ]
+    else:
+        filtered_dataframe = filtered_dataframe[
+            ["slots_used", "tempo_criacao", "tempo_desalocacao"]
+        ]
+
+    max_time = max(
+        filtered_dataframe["tempo_desalocacao"].max(),
+        filtered_dataframe["tempo_criacao"].max(),
+    )
+    numero_total_de_slots = len(topology.edges()) * numero_de_slots
+    time_points = np.arange(10, max_time + time_step, time_step)
+    window_points = np.arange(10, max_time + window_size, window_size)
+
+    # Calculate overall network usage
+    # Note: This is the sum of ALL allocated slots / total network capacity
+    network_usage = _calculate_usage_at_time_points(
+        filtered_dataframe, time_points, numero_total_de_slots
+    )
+    avg_network_usage = _apply_sliding_window(
+        network_usage, time_points, window_points, window_size
+    )
+
+    # Calculate per-ISP usage if requested
+    # Important: Each ISP's usage is also normalized by total_network_capacity,
+    # so sum(all ISP usages) = total usage at each time point
+    # This allows comparing ISP contributions on the same scale
+    # Uses src_isp_index column to correctly attribute requests to ISPs
+    isp_avg_usage = {}
+    if show_per_isp and isp_dict:
+        for isp_id in isp_dict:
+            isp_usage = _calculate_usage_at_time_points(
+                filtered_dataframe, time_points, numero_total_de_slots, isp_id
+            )
+            isp_avg_usage[isp_id] = _apply_sliding_window(
+                isp_usage, time_points, window_points, window_size
+            )
+
+    # Create plot
+    fig, ax = plt.subplots(figsize=figsize)
+
+    # Add disaster and migration timing markers
+    add_disaster_and_migration_markers(
+        ax,
+        scenario=scenario,
+        disaster_start=disaster_start,
+        disaster_end=disaster_end,
+        migration_times=migration_times,
+        show_legend=True,
+    )
+
+    # Plot overall usage
+    if show_per_isp and isp_dict:
+        # Show total as dashed line for comparison
+        ax.plot(
+            window_points,
+            avg_network_usage,
+            label="Total (All ISPs)",
+            linewidth=2.5,
+            linestyle="--",
+            color="black",
+            alpha=0.7,
+        )
+    else:
+        # Show total as main line
+        ax.plot(
+            window_points, avg_network_usage, label="Uso médio de rede", linewidth=2
+        )
+
+    # Plot per-ISP usage
+    if show_per_isp and isp_dict:
+        colors = ["#e74c3c", "#3498db", "#2ecc71", "#f39c12", "#9b59b6", "#1abc9c"]
+        for idx, (isp_id, avg_usage) in enumerate(isp_avg_usage.items()):
+            color = colors[idx % len(colors)]
+            ax.plot(
+                window_points,
+                avg_usage,
+                label=f"ISP {isp_id}",
+                linewidth=2,
+                color=color,
+                alpha=0.8,
+            )
+
+    ax.set_title("Porcentagem média de slots de frequência alocados na rede pelo tempo")
+    ax.set_xlabel("Tempo (segundos)")
+    ax.set_ylabel("Porcentagem média de slots de frequência alocados")
+    ax.set_ylim([0, 1.0])
+    ax.grid(True, alpha=0.3)
+    ax.legend(loc="best")
+
+    plt.tight_layout()
 
 
 def plot_slots_per_node_during_disaster(
