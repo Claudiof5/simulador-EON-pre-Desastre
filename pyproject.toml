@@ -12,8 +12,11 @@ simpy = "^4.1.1"
 numpy = "^2.1.3"
 pandas = "^2.2.3"
 matplotlib = "^3.9.2"
+seaborn = "^0.13.2"
 networkx = "^3.4.2"
 ipykernel = "^6.29.5"
+ipywidgets = "^8.1.5"
+jupyterlab = "^4.0.0"
 
 
 [tool.poetry.group.dev.dependencies]
@@ -29,48 +32,44 @@ line-length = 88
 target-version = "py311"
 
 # Exclude Jupyter notebooks and other files from linting
-extend-exclude = [
-    "*.ipynb",
-    "**/*.ipynb",
-    "**/simulador/Roteamento/**"
-]
+extend-exclude = ["*.ipynb", "**/*.ipynb", "**/simulador/Roteamento/**"]
 
 [tool.ruff.lint]
 # Enable these rule categories
 select = [
-    "E",     # pycodestyle errors
-    "W",     # pycodestyle warnings  
-    "F",     # pyflakes
-    "I",     # isort (import sorting)
-    "C90",   # mccabe complexity
-    "N",     # pep8-naming
-    "UP",    # pyupgrade
-    "B",     # flake8-bugbear
-    "D",     # pydocstyle (docstring conventions)
-    "A",     # flake8-builtins (builtin shadowing)
-    "COM",   # flake8-commas (trailing commas)
-    "PT",    # flake8-pytest-style (when you add tests)
-    "RET",   # flake8-return (return statement improvements)
-    "SIM",   # flake8-simplify (code simplification)
-    "ARG",   # flake8-unused-arguments
-    "ERA",   # eradicate (commented-out code)
-    "PL",    # Pylint rules
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings  
+    "F",   # pyflakes
+    "I",   # isort (import sorting)
+    "C90", # mccabe complexity
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "D",   # pydocstyle (docstring conventions)
+    "A",   # flake8-builtins (builtin shadowing)
+    "COM", # flake8-commas (trailing commas)
+    "PT",  # flake8-pytest-style (when you add tests)
+    "RET", # flake8-return (return statement improvements)
+    "SIM", # flake8-simplify (code simplification)
+    "ARG", # flake8-unused-arguments
+    "ERA", # eradicate (commented-out code)
+    "PL",  # Pylint rules
 ]
 
 # Ignore these specific rules
 ignore = [
-    "E501",  # line too long (handled by formatter)
-    "N813",  # camelCase imported as lowercase (for your current code style)
-    "D100",  # Missing docstring in public module
-    "D101",  # Missing docstring in public class  
-    "D102",  # Missing docstring in public method
-    "D103",  # Missing docstring in public function
-    "D104",  # Missing docstring in public package
-    "S101",  # Use of assert detected (OK for simulations)
+    "E501",    # line too long (handled by formatter)
+    "N813",    # camelCase imported as lowercase (for your current code style)
+    "D100",    # Missing docstring in public module
+    "D101",    # Missing docstring in public class  
+    "D102",    # Missing docstring in public method
+    "D103",    # Missing docstring in public function
+    "D104",    # Missing docstring in public package
+    "S101",    # Use of assert detected (OK for simulations)
     "PLR0913", # Too many arguments to function call
     "PLR0912", # Too many branches
-    "COM812", # Trailing comma (conflicts with formatter)
-    "ERA001", # Commented-out code (sometimes needed)
+    "COM812",  # Trailing comma (conflicts with formatter)
+    "ERA001",  # Commented-out code (sometimes needed)
 ]
 
 [tool.ruff.format]
@@ -85,14 +84,14 @@ known-first-party = ["simulador"]
 
 [tool.ruff.lint.pydocstyle]
 # Choose one docstring convention to avoid conflicts
-convention = "google"  # or "numpy" or "pep257"
+convention = "google" # or "numpy" or "pep257"
 
 [tool.mypy]
 # Basic mypy configuration
 python_version = "3.11"
 warn_return_any = true
 warn_unused_configs = true
-disallow_untyped_defs = false  # Set to true when ready for strict typing
+disallow_untyped_defs = false    # Set to true when ready for strict typing
 disallow_incomplete_defs = false
 check_untyped_defs = true
 warn_redundant_casts = true
@@ -103,8 +102,5 @@ ignore_missing_imports = true
 
 # Specific module settings
 [[tool.mypy.overrides]]
-module = [
-    "simpy.*",
-    "pandas.*",
-]
+module = ["simpy.*", "pandas.*"]
 ignore_missing_imports = true

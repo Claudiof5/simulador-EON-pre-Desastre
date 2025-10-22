@@ -87,9 +87,32 @@ VARIANCIA_THROUGHPUT: float = THROUGHPUT * 0.1
 TEMPO_DE_REACAO: int = 300  # seconds (5 minutes)
 VARIANCIA_TEMPO_DE_REACAO: float = TEMPO_DE_REACAO * 0.15
 
-# Datacenter storage capacity: buffer to store data during migration
-# Can store 75% of what would be processed during reaction time
-TAMANHO_DATACENTER: float = THROUGHPUT * TEMPO_DE_REACAO * 0.75
+# Datacenter storage capacity: cumulative bandwidth target (in Gbps)
+#
+# SIMPLIFIED APPROACH: Track migration by accumulating bandwidth of successful requests
+# Each successful request contributes its bandwidth (Gbps) to the total.
+# Migration completes when: sum(bandwidth) >= TAMANHO_DATACENTER
+#
+# This is simpler than tracking Gigabits (bandwidth × time), and more intuitive:
+# "Need to allocate X Gbps total across all requests" vs "Need to transfer X Gigabits"
+#
+# Calculation:
+# 1. Migration rate: _PER_ISP_MIGRATION_REQ_PER_SEC requests/second
+# 2. Average bandwidth per request: _AVG_BANDWIDTH Gbps
+# 3. Time available: INICIO_DESASTRE - TEMPO_DE_REACAO seconds
+# 4. Success rate target: 0.75 (expecting 25% blocking)
+#
+# Formula: Total_Bandwidth = (req/s × Gbps/req) × time_available × success_target
+_TIME_AVAILABLE_FOR_MIGRATION = INICIO_DESASTRE - TEMPO_DE_REACAO
+_MIGRATION_SUCCESS_TARGET = 0.75  # Target 75% completion with expected blocking
+
+# Total bandwidth target (cumulative Gbps across all successful requests)
+TAMANHO_DATACENTER: float = (
+    _PER_ISP_MIGRATION_REQ_PER_SEC
+    * _AVG_BANDWIDTH
+    * _TIME_AVAILABLE_FOR_MIGRATION
+    * _MIGRATION_SUCCESS_TARGET
+)
 VARIANCIA_TAMANHO_DATACENTER: float = TAMANHO_DATACENTER * 0.1
 
 # Modulation factors and distance thresholds
