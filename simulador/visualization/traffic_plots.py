@@ -11,6 +11,7 @@ import numpy as np
 import pandas as pd
 
 from simulador.analysis import metrics_calculator
+from simulador.config import NUMERO_DE_SLOTS
 
 
 def add_disaster_and_migration_markers(
@@ -412,7 +413,7 @@ def plot_blocking_percentage_over_time(
 def plot_network_usage(
     dataframe: pd.DataFrame,
     topology,
-    numero_de_slots: int,
+    numero_de_slots: int = NUMERO_DE_SLOTS,
     time_step: float = 0.1,
     window_size: float = 10,
     scenario: object | None = None,

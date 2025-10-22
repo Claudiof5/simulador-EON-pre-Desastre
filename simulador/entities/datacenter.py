@@ -9,6 +9,7 @@ import simpy
 from simulador.config.settings import BANDWIDTH
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
+from simulador.routing.subnet import FirstFitSubnet
 from simulador.utils.logger import Logger
 from simulador.utils.metrics import Metrics
 
@@ -65,11 +66,16 @@ class Datacenter:
             req_id += 1
             yield from self.espera_requisicao(requisicao, simulador.env, taxa_mensagens)
 
-            roteador: type[RoutingBase] = isp.roteamento_atual
+            # Migrations use REGULAR routing (not disaster-aware)
+            # Rationale: Disaster node is still operational during migration period
+            # Using disaster-aware routing would block paths FROM disaster node
+            roteador: type[RoutingBase] = FirstFitSubnet
             resultado = roteador.rotear_requisicao(
                 requisicao, simulador.topology, simulador.env
             )
             if resultado:
+                # Count cumulative bandwidth allocated (in Gbps)
+                # Migration completes when sum(bandwidth) >= tamanho_datacenter
                 dados_enviados += bandwidth
                 Logger.mensagem_acompanha_status_migracao(
                     isp.isp_id,

@@ -20,13 +20,25 @@ if TYPE_CHECKING:
     from simulador import Topology
 
 
-class FirstFitSubnetDisasterAware(RoutingBase):
-    """Subnet routing class for same-ISP traffic that avoids disaster nodes."""
+class FirstFitWeightedSubnetDisasterAware(RoutingBase):
+    """Subnet routing class for same-ISP traffic that avoids disaster nodes.
+
+    Uses weighted path selection where weights are based on:
+    1. Link usage frequency in shortest paths (0-20% increase)
+    2. Link usage frequency in migration paths (0-20% increase)
+
+    Total weight range: 1.0 to 1.4 (encouraging load balancing)
+    """
+
+    # Cache for link weights per ISP
+    _link_weights_cache: dict[int, dict[tuple[int, int], float]] = {}
+    # Cache for migration-based weights (global across all ISPs)
+    _migration_weights_cache: dict[tuple[int, int], float] | None = None
 
     @staticmethod
     def __str__() -> str:
         """Return string representation of the routing method."""
-        return "FirstFit subrede evitando nodes de desastre"
+        return "FirstFit subrede evitando nodes de desastre com pesos"
 
     @staticmethod
     def rotear_requisicao(
@@ -43,7 +55,9 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             bool: True if routing successful, False otherwise
         """
         requisicao_roteada_com_sucesso = (
-            FirstFitSubnetDisasterAware.__rotear_requisicao(requisicao, topology, env)
+            FirstFitWeightedSubnetDisasterAware.__rotear_requisicao(
+                requisicao, topology, env
+            )
         )
         if requisicao_roteada_com_sucesso:
             Metrics.incrementa_numero_requisicoes_aceitas(requisicao, env)
@@ -70,7 +84,9 @@ class FirstFitSubnetDisasterAware(RoutingBase):
         )
 
         requisicao_roteada_com_sucesso = (
-            FirstFitSubnetDisasterAware.__rotear_requisicao(requisicao, topology, env)
+            FirstFitWeightedSubnetDisasterAware.__rotear_requisicao(
+                requisicao, topology, env
+            )
         )
 
         if requisicao_roteada_com_sucesso:
@@ -94,12 +110,12 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             bool: True if routing successful, False otherwise
         """
         informacoes_dos_datapaths, pelo_menos_uma_janela_habil = (
-            FirstFitSubnetDisasterAware.__retorna_informacoes_datapaths(
+            FirstFitWeightedSubnetDisasterAware.__retorna_informacoes_datapaths(
                 requisicao, topology
             )
         )
         if pelo_menos_uma_janela_habil:
-            FirstFitSubnetDisasterAware.__aloca_requisicao(
+            FirstFitWeightedSubnetDisasterAware.__aloca_requisicao(
                 requisicao, topology, informacoes_dos_datapaths, env
             )
             return True
@@ -127,7 +143,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
                 informacoes_datapath["maior_janela_contigua_continua"]
                 >= informacoes_datapath["numero_slots_necessarios"]
             ):
-                FirstFitSubnetDisasterAware.__aloca_datapath(
+                FirstFitWeightedSubnetDisasterAware.__aloca_datapath(
                     requisicao, topology, informacoes_datapath, env
                 )
                 break
@@ -196,14 +212,14 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
         # Try to get ISP-specific disaster-aware paths first
         caminhos_isp_desastre = (
-            FirstFitSubnetDisasterAware._get_caminhos_desastre_from_isp(
+            FirstFitWeightedSubnetDisasterAware._get_caminhos_desastre_from_isp(
                 requisicao, topology, isp_requisicao
             )
         )
 
         if caminhos_isp_desastre:
             # Use ISP disaster-aware precomputed paths
-            return FirstFitSubnetDisasterAware._processar_caminhos_isp(
+            return FirstFitWeightedSubnetDisasterAware._processar_caminhos_isp(
                 caminhos_isp_desastre, requisicao, topology
             )
 
@@ -223,12 +239,14 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             ][int(requisicao.dst)]
         else:
             # Final fallback to regular ISP paths or topology paths
-            caminhos_isp_regular = FirstFitSubnetDisasterAware._get_caminhos_from_isp(
-                requisicao, topology, isp_requisicao
+            caminhos_isp_regular = (
+                FirstFitWeightedSubnetDisasterAware._get_caminhos_from_isp(
+                    requisicao, topology, isp_requisicao
+                )
             )
 
             if caminhos_isp_regular:
-                return FirstFitSubnetDisasterAware._processar_caminhos_isp(
+                return FirstFitWeightedSubnetDisasterAware._processar_caminhos_isp(
                     caminhos_isp_regular, requisicao, topology
                 )
             # Use topology paths with ISP filtering
@@ -237,9 +255,241 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             ]
 
         # Process topology-wide paths with ISP filtering
-        return FirstFitSubnetDisasterAware._processar_caminhos_topology(
+        return FirstFitWeightedSubnetDisasterAware._processar_caminhos_topology(
             caminhos, requisicao, topology, isp_requisicao
         )
+
+    @staticmethod
+    def _calculate_link_weights_for_isp(
+        isp_id: int, topology: Topology
+    ) -> dict[tuple[int, int], float]:
+        """Calculate link weights based on usage frequency in shortest paths.
+
+        Links that appear more frequently in shortest paths get higher weights
+        (up to 20% increase) to encourage load balancing.
+
+        Args:
+            isp_id: ISP identifier
+            topology: Network topology
+
+        Returns:
+            dict: Mapping from (src, dst) link tuple to weight multiplier (1.0 to 1.2)
+        """
+        # Find the ISP object
+        isp = None
+        for isp_obj in topology.lista_de_isps:
+            if isp_obj.isp_id == isp_id:
+                isp = isp_obj
+                break
+
+        if not isp or not isp.caminhos_internos_isp:
+            return {}
+
+        # Count link occurrences in shortest paths
+        link_count: dict[tuple[int, int], int] = {}
+        total_paths = 0
+
+        # Iterate over all precomputed paths in the ISP
+        for src_node, dst_dict in isp.caminhos_internos_isp.items():
+            for dst_node, path_list in dst_dict.items():
+                if not path_list:
+                    continue
+
+                # Only consider the shortest path (first one)
+                shortest_path_info = path_list[0]
+                caminho = shortest_path_info["caminho"]
+                total_paths += 1
+
+                # Count each link in this path
+                for i in range(len(caminho) - 1):
+                    link = (caminho[i], caminho[i + 1])
+                    # Count both directions (undirected graph)
+                    link_count[link] = link_count.get(link, 0) + 1
+                    reverse_link = (caminho[i + 1], caminho[i])
+                    link_count[reverse_link] = link_count.get(reverse_link, 0) + 1
+
+        if not link_count or total_paths == 0:
+            return {}
+
+        # Calculate average occurrence
+        avg_occurrence = sum(link_count.values()) / len(link_count)
+
+        # Normalize to weights between 1.0 and 1.2
+        # Links with higher usage get higher weights (making them "longer")
+        link_weights: dict[tuple[int, int], float] = {}
+        max_count = max(link_count.values())
+
+        for link, count in link_count.items():
+            if max_count > 0:
+                # Normalize: links with max usage get 1.2, min usage get 1.0
+                normalized = count / max_count
+                weight = 1.0 + (normalized * 0.2)  # Range: 1.0 to 1.2
+            else:
+                weight = 1.0
+            link_weights[link] = weight
+
+        return link_weights
+
+    @staticmethod
+    def _calculate_migration_link_weights(
+        topology: Topology,
+    ) -> dict[tuple[int, int], float]:
+        """Calculate link weights based on migration path usage across ALL ISPs.
+
+        Links that appear more frequently in migration paths get higher weights
+        (up to 20% increase) to discourage normal traffic from using them.
+
+        Args:
+            topology: Network topology
+
+        Returns:
+            dict: Mapping from (src, dst) link tuple to weight multiplier (0.0 to 0.2)
+        """
+        link_count: dict[tuple[int, int], int] = {}
+        total_migration_paths = 0
+
+        # Iterate over all ISPs and their datacenters
+        for isp in topology.lista_de_isps:
+            # Check if ISP has datacenters
+            if not hasattr(isp, "datacenters") or not isp.datacenters:
+                continue
+
+            # For each datacenter, get migration paths
+            for datacenter in isp.datacenters:
+                src = datacenter.source
+                dst = datacenter.destination
+
+                # Try to get paths from ISP's internal paths
+                # Migration paths are from datacenter source to backup destination
+                paths = isp.get_caminhos_entre_nodes(int(src), int(dst))
+
+                if not paths:
+                    continue
+
+                # Consider first 3 paths (k-shortest) for migration
+                for path_info in paths[:3]:
+                    caminho = path_info["caminho"]
+                    total_migration_paths += 1
+
+                    # Count each link in the migration path
+                    for i in range(len(caminho) - 1):
+                        link = (caminho[i], caminho[i + 1])
+                        link_count[link] = link_count.get(link, 0) + 1
+                        # Count both directions (undirected graph)
+                        reverse_link = (caminho[i + 1], caminho[i])
+                        link_count[reverse_link] = link_count.get(reverse_link, 0) + 1
+
+        if not link_count or total_migration_paths == 0:
+            return {}
+
+        # Normalize to weights between 0.0 and 0.2
+        # Links with highest migration usage get +0.2, unused get +0.0
+        migration_weights: dict[tuple[int, int], float] = {}
+        max_count = max(link_count.values())
+
+        for link, count in link_count.items():
+            if max_count > 0:
+                # Normalize: links with max usage get 0.2, min usage get 0.0
+                normalized = count / max_count
+                weight = normalized * 0.2  # Range: 0.0 to 0.2
+            else:
+                weight = 0.0
+            migration_weights[link] = weight
+
+        return migration_weights
+
+    @staticmethod
+    def _get_migration_weights(topology: Topology) -> dict[tuple[int, int], float]:
+        """Get cached migration link weights or calculate them.
+
+        Migration weights are calculated once and cached globally across all ISPs.
+
+        Args:
+            topology: Network topology
+
+        Returns:
+            dict: Migration link weights mapping
+        """
+        if FirstFitWeightedSubnetDisasterAware._migration_weights_cache is None:
+            FirstFitWeightedSubnetDisasterAware._migration_weights_cache = (
+                FirstFitWeightedSubnetDisasterAware._calculate_migration_link_weights(
+                    topology
+                )
+            )
+        return FirstFitWeightedSubnetDisasterAware._migration_weights_cache
+
+    @staticmethod
+    def _get_link_weights(
+        isp_id: int, topology: Topology
+    ) -> dict[tuple[int, int], float]:
+        """Get cached link weights or calculate them.
+
+        Args:
+            isp_id: ISP identifier
+            topology: Network topology
+
+        Returns:
+            dict: Link weights mapping
+        """
+        if isp_id not in FirstFitWeightedSubnetDisasterAware._link_weights_cache:
+            FirstFitWeightedSubnetDisasterAware._link_weights_cache[isp_id] = (
+                FirstFitWeightedSubnetDisasterAware._calculate_link_weights_for_isp(
+                    isp_id, topology
+                )
+            )
+        return FirstFitWeightedSubnetDisasterAware._link_weights_cache[isp_id]
+
+    @staticmethod
+    def _calculate_weighted_path_distance(
+        caminho: list[int],
+        base_distance: float,
+        link_weights: dict[tuple[int, int], float],
+        migration_weights: dict[tuple[int, int], float] | None = None,
+    ) -> float:
+        """Calculate weighted distance for a path using combined link weights.
+
+        Combines two weight systems:
+        1. ISP-specific weights based on shortest path usage (1.0 to 1.2)
+        2. Global migration weights based on migration path usage (0.0 to 0.2)
+
+        Total weight range: 1.0 to 1.4
+
+        Args:
+            caminho: List of nodes in the path
+            base_distance: Original path distance
+            link_weights: Dictionary of ISP-specific link weights
+            migration_weights: Dictionary of migration-based link weights
+
+        Returns:
+            float: Weighted distance (up to 40% longer than original)
+        """
+        if not link_weights and not migration_weights:
+            return base_distance
+
+        # Calculate average combined weight for links in this path
+        total_weight = 0.0
+        link_count = 0
+
+        for i in range(len(caminho) - 1):
+            link = (caminho[i], caminho[i + 1])
+
+            # Base weight from ISP-specific usage (1.0 to 1.2)
+            isp_weight = link_weights.get(link, 1.0) if link_weights else 1.0
+
+            # Additional weight from migration usage (0.0 to 0.2)
+            mig_weight = migration_weights.get(link, 0.0) if migration_weights else 0.0
+
+            # Combined weight: 1.0 to 1.4
+            combined_weight = isp_weight + mig_weight
+
+            total_weight += combined_weight
+            link_count += 1
+
+        if link_count == 0:
+            return base_distance
+
+        avg_weight = total_weight / link_count
+        return base_distance * avg_weight
 
     @staticmethod
     def _get_caminhos_desastre_from_isp(
@@ -289,7 +539,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
     def _processar_caminhos_isp(
         caminhos_isp: list[dict], requisicao: Request, topology: Topology
     ) -> tuple[list[dict], bool]:
-        """Process ISP precomputed paths.
+        """Process ISP precomputed paths with weighted selection.
 
         Args:
             caminhos_isp: ISP precomputed paths
@@ -297,10 +547,24 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             topology: Network topology
 
         Returns:
-            tuple: (list of path information, at least one available window)
+            tuple: (list of path information sorted by weighted distance, at least one available window)
         """
+        # Get link weights for this ISP
+        isp_id = requisicao.src_isp
+        link_weights = FirstFitWeightedSubnetDisasterAware._get_link_weights(
+            isp_id, topology
+        )
+
+        # Get migration weights (global across all ISPs)
+        migration_weights = FirstFitWeightedSubnetDisasterAware._get_migration_weights(
+            topology
+        )
+
         lista_de_informacoes_datapath = []
         pelo_menos_uma_janela_habil = False
+
+        # Process all paths and calculate weighted distances
+        paths_with_weights = []
 
         for informacoes_caminho in caminhos_isp:
             caminho = informacoes_caminho["caminho"]
@@ -311,27 +575,44 @@ class FirstFitSubnetDisasterAware(RoutingBase):
 
             distancia = informacoes_caminho["distancia"]
             fator_de_modulacao = informacoes_caminho["fator_de_modulacao"]
-            numero_slots_necessarios = FirstFitSubnetDisasterAware.__slots_nescessarios(
-                requisicao.bandwidth, fator_de_modulacao
+            numero_slots_necessarios = (
+                FirstFitWeightedSubnetDisasterAware.__slots_nescessarios(
+                    requisicao.bandwidth, fator_de_modulacao
+                )
             )
 
             lista_de_inicios_e_fins, maior_janela_caminho = (
-                FirstFitSubnetDisasterAware.informacoes_sobre_slots(caminho, topology)
+                FirstFitWeightedSubnetDisasterAware.informacoes_sobre_slots(
+                    caminho, topology
+                )
+            )
+
+            # Calculate weighted distance for path ranking
+            # Combines ISP-specific weights + migration weights
+            weighted_distance = (
+                FirstFitWeightedSubnetDisasterAware._calculate_weighted_path_distance(
+                    caminho, distancia, link_weights, migration_weights
+                )
             )
 
             dados_do_caminho = {
                 "caminho": caminho,
                 "distancia": distancia,
+                "weighted_distance": weighted_distance,
                 "fator_de_modulacao": fator_de_modulacao,
                 "lista_de_inicios_e_fins": lista_de_inicios_e_fins,
                 "numero_slots_necessarios": numero_slots_necessarios,
                 "maior_janela_contigua_continua": maior_janela_caminho,
             }
 
-            lista_de_informacoes_datapath.append(dados_do_caminho)
+            paths_with_weights.append(dados_do_caminho)
+
             if maior_janela_caminho >= numero_slots_necessarios:
                 pelo_menos_uma_janela_habil = True
-                break
+
+        # Sort paths by weighted distance (prefer less congested paths)
+        paths_with_weights.sort(key=lambda x: x["weighted_distance"])
+        lista_de_informacoes_datapath = paths_with_weights
 
         return (lista_de_informacoes_datapath, pelo_menos_uma_janela_habil)
 
@@ -339,7 +620,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
     def _processar_caminhos_topology(
         caminhos: list[dict], requisicao: Request, topology: Topology, isp_id: int
     ) -> tuple[list[dict], bool]:
-        """Process topology-wide paths with ISP filtering.
+        """Process topology-wide paths with ISP filtering and weighted selection.
 
         Args:
             caminhos: Topology paths
@@ -348,10 +629,23 @@ class FirstFitSubnetDisasterAware(RoutingBase):
             isp_id: ISP identifier
 
         Returns:
-            tuple: (list of path information, at least one available window)
+            tuple: (list of path information sorted by weighted distance, at least one available window)
         """
+        # Get link weights for this ISP
+        link_weights = FirstFitWeightedSubnetDisasterAware._get_link_weights(
+            isp_id, topology
+        )
+
+        # Get migration weights (global across all ISPs)
+        migration_weights = FirstFitWeightedSubnetDisasterAware._get_migration_weights(
+            topology
+        )
+
         lista_de_informacoes_datapath = []
         pelo_menos_uma_janela_habil = False
+
+        # Process all paths and calculate weighted distances
+        paths_with_weights = []
 
         for informacoes_caminho in caminhos:
             caminho = informacoes_caminho["caminho"]
@@ -361,34 +655,51 @@ class FirstFitSubnetDisasterAware(RoutingBase):
                 continue
 
             # Verifica se todos os nodes do caminho pertencem à mesma ISP (subnet constraint)
-            if not FirstFitSubnetDisasterAware.__caminho_pertence_a_isp(
+            if not FirstFitWeightedSubnetDisasterAware.__caminho_pertence_a_isp(
                 caminho, topology, isp_id
             ):
                 continue
 
             distancia = informacoes_caminho["distancia"]
             fator_de_modulacao = informacoes_caminho["fator_de_modulacao"]
-            numero_slots_necessarios = FirstFitSubnetDisasterAware.__slots_nescessarios(
-                requisicao.bandwidth, fator_de_modulacao
+            numero_slots_necessarios = (
+                FirstFitWeightedSubnetDisasterAware.__slots_nescessarios(
+                    requisicao.bandwidth, fator_de_modulacao
+                )
             )
 
             lista_de_inicios_e_fins, maior_janela_caminho = (
-                FirstFitSubnetDisasterAware.informacoes_sobre_slots(caminho, topology)
+                FirstFitWeightedSubnetDisasterAware.informacoes_sobre_slots(
+                    caminho, topology
+                )
+            )
+
+            # Calculate weighted distance for path ranking
+            # Combines ISP-specific weights + migration weights
+            weighted_distance = (
+                FirstFitWeightedSubnetDisasterAware._calculate_weighted_path_distance(
+                    caminho, distancia, link_weights, migration_weights
+                )
             )
 
             dados_do_caminho = {
                 "caminho": caminho,
                 "distancia": distancia,
+                "weighted_distance": weighted_distance,
                 "fator_de_modulacao": fator_de_modulacao,
                 "lista_de_inicios_e_fins": lista_de_inicios_e_fins,
                 "numero_slots_necessarios": numero_slots_necessarios,
                 "maior_janela_contigua_continua": maior_janela_caminho,
             }
 
-            lista_de_informacoes_datapath.append(dados_do_caminho)
+            paths_with_weights.append(dados_do_caminho)
+
             if maior_janela_caminho >= numero_slots_necessarios:
                 pelo_menos_uma_janela_habil = True
-                break
+
+        # Sort paths by weighted distance (prefer less congested paths)
+        paths_with_weights.sort(key=lambda x: x["weighted_distance"])
+        lista_de_informacoes_datapath = paths_with_weights
 
         return (lista_de_informacoes_datapath, pelo_menos_uma_janela_habil)
 
@@ -411,7 +722,7 @@ class FirstFitSubnetDisasterAware(RoutingBase):
         maior_janela = 0
 
         for i in range(topology.numero_de_slots):
-            if FirstFitSubnetDisasterAware.__checa_concurrency_slot(
+            if FirstFitWeightedSubnetDisasterAware.__checa_concurrency_slot(
                 caminho, topology, i
             ):
                 if not last_slot_was_free:
