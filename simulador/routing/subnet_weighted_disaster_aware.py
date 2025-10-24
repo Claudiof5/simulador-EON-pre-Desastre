@@ -495,7 +495,7 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
     def _get_caminhos_desastre_from_isp(
         requisicao: Request, topology: Topology, isp_id: int
     ) -> list[dict]:
-        """Get precomputed disaster-aware paths from ISP if available.
+        """Get precomputed weighted disaster-aware paths from ISP if available.
 
         Args:
             requisicao: Network request
@@ -503,14 +503,24 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
             isp_id: ISP identifier
 
         Returns:
-            list[dict]: List of disaster-aware path information from ISP, empty if not available
+            list[dict]: List of weighted disaster-aware path information from ISP, empty if not available
         """
         # Find the ISP object
-        for isp in topology.lista_de_isps:  # Assuming topology has lista_de_isps
+        for isp in topology.lista_de_isps:
             if isp.isp_id == isp_id:
-                return isp.get_caminhos_entre_nodes_durante_desastre(
-                    int(requisicao.src), int(requisicao.dst)
-                )
+                # Use weighted disaster-aware paths if available
+                src = int(requisicao.src)
+                dst = int(requisicao.dst)
+
+                if (
+                    hasattr(isp, "weighted_caminhos_internos_isp_durante_desastre")
+                    and src in isp.weighted_caminhos_internos_isp_durante_desastre
+                    and dst in isp.weighted_caminhos_internos_isp_durante_desastre[src]
+                ):
+                    return isp.weighted_caminhos_internos_isp_durante_desastre[src][dst]
+
+                # Fallback to regular disaster-aware paths
+                return isp.get_caminhos_entre_nodes_durante_desastre(src, dst)
         return []
 
     @staticmethod

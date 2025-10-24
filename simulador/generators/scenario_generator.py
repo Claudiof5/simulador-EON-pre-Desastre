@@ -92,20 +92,34 @@ class ScenarioGenerator:
         if lista_de_roteamentos_de_desastre is None:
             lista_de_roteamentos_de_desastre = [FirstFit]
 
+        # Generate first scenario
         cenario_result = ScenarioGenerator.gerar_cenario(
             topology,
             disaster_node=disaster_node,
             retornar_objetos=True,
             retorna_lista_de_requisicoes=retorna_lista_de_requisicoes,
             numero_de_requisicoes=numero_de_requisicoes,
-            roteamento_de_desastre=lista_de_roteamentos_de_desastre.pop(0),
+            roteamento_de_desastre=lista_de_roteamentos_de_desastre[0],
         )
         cenario: Scenario = cast(Scenario, cenario_result)
-
         lista_de_cenarios: list[Scenario] = [cenario]
-        for roteamento in lista_de_roteamentos_de_desastre:
+
+        # For additional routing algorithms, create scenarios by deepcopy
+        # but keep same ISP topology/traffic (only change routing)
+        for roteamento in lista_de_roteamentos_de_desastre[1:]:
             novo_cenario = deepcopy(cenario)
             novo_cenario.troca_roteamento_lista_de_desastre(roteamento)
+
+            # Recompute disaster-aware paths with the new routing algorithm's requirements
+            # This ensures weighted paths are computed for weighted routing algorithms
+            for isp in novo_cenario.lista_de_isps:
+                isp.computar_caminhos_internos_durante_desastre(
+                    novo_cenario.topology.topology,
+                    disaster_node,
+                    NUMERO_DE_CAMINHOS,
+                    lista_de_isps=novo_cenario.lista_de_isps,
+                )
+
             lista_de_cenarios.append(novo_cenario)
 
         return tuple(lista_de_cenarios)

@@ -37,7 +37,7 @@ _AVG_SLOTS_PER_LINK = _AVG_BANDWIDTH / (
 _AVG_SLOTS_PER_REQUEST = _AVG_SLOTS_PER_LINK * _AVG_PATH_LENGTH  # ~41.4 slot-hops
 
 # Target network utilization (0.6 = 60%, 0.7 = 70%, 0.8 = 80%)
-_TARGET_UTILIZATION = 0.8  # Conservative: expect 10-20% blocking rate
+_TARGET_UTILIZATION = 0.5  # Conservative: expect 10-20% blocking rate
 # _TARGET_UTILIZATION = 0.7  # Moderate: expect 20-30% blocking rate
 # _TARGET_UTILIZATION = 0.8  # High: expect 30-40% blocking rate
 
@@ -69,7 +69,7 @@ VARIANCIA_DURACAO_DESASTRE: float = DURACAO_DESASTRE * 0.1
 # Quanto aos datacenters
 # MIGRATION_NETWORK_FRACTION: What fraction of network capacity can ALL datacenters
 # use for migration traffic (e.g., 0.2 = 20% of network capacity for migration)
-MIGRATION_NETWORK_FRACTION: float = 0.20  # 20% of network for ALL migration traffic
+MIGRATION_NETWORK_FRACTION: float = 0.15  # 20% of network for ALL migration traffic
 
 # Calculate throughput in SLOTS per second for each datacenter
 # Total migration capacity in requests/s
@@ -113,7 +113,7 @@ TAMANHO_DATACENTER: float = (
     * _TIME_AVAILABLE_FOR_MIGRATION
     * _MIGRATION_SUCCESS_TARGET
 )
-VARIANCIA_TAMANHO_DATACENTER: float = TAMANHO_DATACENTER * 0.1
+VARIANCIA_TAMANHO_DATACENTER: float = 0
 
 # Modulation factors and distance thresholds
 DISTANCIA_MODULACAO_4: int = 500  # Distance threshold for 4x modulation factor
@@ -123,3 +123,9 @@ FATOR_MODULACAO_4: int = 4  # Highest modulation factor
 FATOR_MODULACAO_3: int = 3  # High modulation factor
 FATOR_MODULACAO_2: int = 2  # Medium modulation factor
 FATOR_MODULACAO_1: int = 1  # Lowest modulation factor
+
+ALPHA: float = 0.6  # This is the weight of the ISP usage in the weighted paths
+BETA: float = 0.2  # This is the weight of the migration traffic in the weighted paths
+GAMMA: float = (
+    0.4  # This is the weight of the criticality of the links in the weighted paths
+)

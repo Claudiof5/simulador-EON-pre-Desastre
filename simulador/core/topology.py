@@ -78,6 +78,28 @@ class Topology:
         print("Arestas com atributos: ", self.topology.edges(data=True))
         print("Nós com atributos: ", self.topology.nodes(data=True))
 
+    def get_caminhos_given_isp_id(
+        self, isp_id: int, is_disaster: bool = False, is_weighted: bool = False
+    ) -> list[dict]:
+        """Get caminhos given ISP ID.
+
+        Args:
+            isp_id: ISP ID
+            is_disaster: If True, return disaster-aware paths
+            is_weighted: If True, return weighted paths
+
+        Returns:
+            list[dict]: List of caminhos
+        """
+        for isp in self.lista_de_isps:
+            if isp.isp_id == isp_id:
+                if is_disaster:
+                    return isp.caminhos_internos_isp_durante_desastre
+                if is_weighted:
+                    return isp.weighted_caminhos_internos_isp_durante_desastre
+                return isp.caminhos_internos_isp
+        return []
+
     def __inicia_topologia(
         self, list_of_isp: list[ISP], numero_de_caminhos: int, numero_de_slots: int
     ) -> None:
