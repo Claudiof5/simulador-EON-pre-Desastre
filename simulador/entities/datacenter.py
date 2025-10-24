@@ -6,7 +6,6 @@ from typing import TYPE_CHECKING
 
 import simpy
 
-from simulador.config.settings import BANDWIDTH
 from simulador.core.request import Request
 from simulador.routing.base import RoutingBase
 from simulador.routing.subnet import FirstFitSubnet
@@ -51,7 +50,11 @@ class Datacenter:
         Logger.mensagem_inicia_migracao(
             isp.isp_id, self.source, self.destination, int(simulador.env.now)
         )
-        taxa_mensagens = self.throughput_por_segundo / (sum(BANDWIDTH) / len(BANDWIDTH))
+        # Convert throughput from slots/s to requests/s
+        # throughput_por_segundo is in slots/s, divide by avg slots per request
+        from simulador.config.settings import _AVG_SLOTS_PER_REQUEST
+
+        taxa_mensagens = self.throughput_por_segundo / _AVG_SLOTS_PER_REQUEST
         inicio_desastre = simulador.desastre.start
 
         req_id = 0

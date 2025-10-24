@@ -8,11 +8,12 @@ link criticality weights.
 from __future__ import annotations
 
 from collections import defaultdict
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import networkx as nx
 
-from simulador.entities.isp import ISP
+if TYPE_CHECKING:
+    from simulador.entities.isp import ISP
 
 
 def calculate_isp_usage_weights(

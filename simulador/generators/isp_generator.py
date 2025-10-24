@@ -146,6 +146,7 @@ class ISPGenerator:
             ):
                 break
 
+        # First pass: Create ISPs and compute basic paths
         lista_de_isps = []
         for isp_id, isp_dict in isps_dict.items():
             isp = ISP(
@@ -159,12 +160,16 @@ class ISPGenerator:
             if computar_caminhos_internos:
                 isp.computar_caminhos_internos(topology, numero_de_caminhos)
 
-                # Compute disaster-aware paths if disaster node is provided
-                if node_desastre is not None:
-                    isp.computar_caminhos_internos_durante_desastre(
-                        topology, node_desastre, numero_de_caminhos
-                    )
-
             lista_de_isps.append(isp)
+
+        # Second pass: Compute disaster-aware weighted paths (needs full ISP list)
+        if computar_caminhos_internos and node_desastre is not None:
+            for isp in lista_de_isps:
+                isp.computar_caminhos_internos_durante_desastre(
+                    topology,
+                    node_desastre,
+                    numero_de_caminhos,
+                    lista_de_isps=lista_de_isps,
+                )
 
         return lista_de_isps

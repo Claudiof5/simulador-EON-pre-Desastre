@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from simulador.config.settings import (
+    ALPHA,
     DISTANCIA_MODULACAO_2,
     DISTANCIA_MODULACAO_3,
     DISTANCIA_MODULACAO_4,
@@ -21,8 +22,9 @@ from simulador.config.settings import (
     FATOR_MODULACAO_3,
     FATOR_MODULACAO_4,
 )
+from simulador.routing import weights
 from simulador.routing.base import RoutingBase
-from simulador.routing.first_fit import FirstFit
+from simulador.routing.subnet import FirstFitSubnet
 
 if TYPE_CHECKING:
     from simulador.entities.datacenter import Datacenter
@@ -42,7 +44,7 @@ class ISP:
         isp_id: int,
         nodes: list[int],
         edges: list[tuple[int, int]],
-        roteamento_de_desastre: type[RoutingBase] = FirstFit,
+        roteamento_de_desastre: type[RoutingBase] | None = None,
     ) -> None:
         """Initialize the ISP class.
 
@@ -55,9 +57,15 @@ class ISP:
         self.isp_id: int = isp_id
         self.nodes: list[int] = nodes
         self.edges: list[tuple[int, int]] = edges
-        self.roteamento_atual: type[RoutingBase] = FirstFit
-        self.roteamento_primario: type[RoutingBase] = FirstFit
-        self.roteamento_desastre: type[RoutingBase] = roteamento_de_desastre
+        # In subnet architecture, primary routing is subnet-based
+        self.roteamento_atual: type[RoutingBase] = FirstFitSubnet
+        self.roteamento_primario: type[RoutingBase] = FirstFitSubnet
+        # If no disaster routing specified, use subnet routing
+        self.roteamento_desastre: type[RoutingBase] = (
+            roteamento_de_desastre
+            if roteamento_de_desastre is not None
+            else FirstFitSubnet
+        )
         self.datacenter: Datacenter | None = None
 
         # Precomputed paths within the ISP
@@ -65,6 +73,9 @@ class ISP:
 
         # Disaster-aware paths within the ISP
         self.caminhos_internos_isp_durante_desastre: dict[
+            int, dict[int, list[dict]]
+        ] = {}
+        self.weighted_caminhos_internos_isp_durante_desastre: dict[
             int, dict[int, list[dict]]
         ] = {}
 
@@ -148,39 +159,99 @@ class ISP:
                 self.caminhos_internos_isp[src_node][dst_node] = informacoes_caminhos
 
     def computar_caminhos_internos_durante_desastre(
-        self, topology: nx.Graph, node_desastre: int, numero_de_caminhos: int = 3
+        self,
+        topology: nx.Graph,
+        node_desastre: int,
+        numero_de_caminhos: int = 10,
+        lista_de_isps: list[ISP] | None = None,
+        weights_by_link_by_isp: dict | None = None,
     ) -> None:
         """Compute disaster-aware shortest paths between all ISP nodes.
+
+        For traffic from/to the disaster node itself, use regular paths (no avoidance).
+        For traffic between other nodes (migration traffic), avoid the disaster node.
 
         Args:
             topology: Network topology graph
             node_desastre: Node that will fail during disaster
             numero_de_caminhos: Number of alternative paths to compute per node pair
+            lista_de_isps: Optional list of all ISPs (for weight calculation)
+            weights_by_link_by_isp: Optional precomputed weights by ISP
         """
-        # Create disaster-aware ISP subgraph by removing disaster node
-        isp_subgraph = self._criar_subgrafo_isp(topology)
+        # Create two subgraphs:
+        # 1. Full ISP subgraph (for traffic from/to disaster node)
+        isp_subgraph_full = self._criar_subgrafo_isp(topology)
 
-        # Remove disaster node if it belongs to this ISP
-        if node_desastre in self.nodes and isp_subgraph.has_node(node_desastre):
-            isp_subgraph.remove_node(node_desastre)
+        # 2. Disaster-aware ISP subgraph (for migration traffic avoiding disaster node)
+        isp_subgraph_disaster_aware = isp_subgraph_full.copy()
+        if node_desastre in self.nodes and isp_subgraph_disaster_aware.has_node(
+            node_desastre
+        ):
+            isp_subgraph_disaster_aware.remove_node(node_desastre)
 
         # Initialize the disaster paths dictionary
         self.caminhos_internos_isp_durante_desastre = {}
+        self.weighted_caminhos_internos_isp_durante_desastre = {}
 
-        # Get available nodes (excluding disaster node)
-        available_nodes = [node for node in self.nodes if node != node_desastre]
+        # Create weighted graphs if weights are provided
+        weighted_isp_subgraph_full = None
+        weighted_isp_subgraph_disaster_aware = None
 
-        for src_node in available_nodes:
+        if weights_by_link_by_isp is not None:
+            weighted_isp_subgraph_full = weights.create_weighted_graph(
+                isp_subgraph_full, self.isp_id, weights_by_link_by_isp
+            )
+            weighted_isp_subgraph_disaster_aware = weights.create_weighted_graph(
+                isp_subgraph_disaster_aware, self.isp_id, weights_by_link_by_isp
+            )
+        elif lista_de_isps is not None:
+            # Calculate weights if list of ISPs is provided
+            weights_by_link_by_isp = weights.calculate_isp_usage_weights(
+                lista_de_isps, ALPHA
+            )
+            weighted_isp_subgraph_full = weights.create_weighted_graph(
+                isp_subgraph_full, self.isp_id, weights_by_link_by_isp
+            )
+            weighted_isp_subgraph_disaster_aware = weights.create_weighted_graph(
+                isp_subgraph_disaster_aware, self.isp_id, weights_by_link_by_isp
+            )
+
+        # Compute paths for all node pairs
+        for src_node in self.nodes:
             self.caminhos_internos_isp_durante_desastre[src_node] = {}
+            self.weighted_caminhos_internos_isp_durante_desastre[src_node] = {}
 
-            for dst_node in available_nodes:
+            for dst_node in self.nodes:
                 if src_node == dst_node:
                     continue
 
-                # Compute k shortest paths within ISP avoiding disaster node
+                # Determine which graph to use:
+                # - If traffic is from/to disaster node, use full graph (no avoidance)
+                # - Otherwise, use disaster-aware graph (avoid disaster node)
+                is_disaster_traffic = node_desastre in (src_node, dst_node)
+
+                if is_disaster_traffic:
+                    # Traffic from/to disaster node: use full graph
+                    subgraph_to_use = isp_subgraph_full
+                    weighted_subgraph_to_use = weighted_isp_subgraph_full
+                else:
+                    # Migration traffic: avoid disaster node
+                    subgraph_to_use = isp_subgraph_disaster_aware
+                    weighted_subgraph_to_use = weighted_isp_subgraph_disaster_aware
+
+                # Compute k shortest paths
                 caminhos = self._k_shortest_paths_isp(
-                    isp_subgraph, src_node, dst_node, numero_de_caminhos
+                    subgraph_to_use, src_node, dst_node, numero_de_caminhos
                 )
+
+                # Compute weighted paths if weighted graph is available
+                if weighted_subgraph_to_use is not None:
+                    weighted_caminhos = self._k_shortest_paths_isp(
+                        weighted_subgraph_to_use, src_node, dst_node, numero_de_caminhos
+                    )
+                else:
+                    # Use same paths as unweighted if no weights available
+                    weighted_caminhos = caminhos
 
                 # Store paths with additional information
                 informacoes_caminhos = []
@@ -200,15 +271,20 @@ class ISP:
                     informacoes_caminhos
                 )
 
-        # Initialize empty paths for disaster node connections
-        for node in self.nodes:
-            if node not in self.caminhos_internos_isp_durante_desastre:
-                self.caminhos_internos_isp_durante_desastre[node] = {}
-
-            # Ensure all node pairs have an entry (empty if involving disaster node)
-            for target_node in self.nodes:
-                if target_node not in self.caminhos_internos_isp_durante_desastre[node]:
-                    self.caminhos_internos_isp_durante_desastre[node][target_node] = []
+                informacoes_caminhos_weighted = []
+                for caminho in weighted_caminhos:
+                    distancia = self._calcular_distancia_caminho(topology, caminho)
+                    fator_modulacao = self._calcular_fator_modulacao(distancia)
+                    informacoes_caminhos_weighted.append(
+                        {
+                            "caminho": caminho,
+                            "distancia": distancia,
+                            "fator_de_modulacao": fator_modulacao,
+                        }
+                    )
+                self.weighted_caminhos_internos_isp_durante_desastre[src_node][
+                    dst_node
+                ] = informacoes_caminhos_weighted
 
     def _criar_subgrafo_isp(self, topology: nx.Graph) -> nx.Graph:
         """Create a subgraph containing only ISP nodes and edges.
@@ -325,17 +401,24 @@ class ISP:
         )
 
     def get_caminhos_entre_nodes_durante_desastre(
-        self, src: int, dst: int
+        self,
+        src: int,
+        dst: int,
+        is_weighted: bool = False,
     ) -> list[dict]:
         """Get precomputed disaster-aware paths between two nodes within the ISP.
 
         Args:
             src: Source node
             dst: Destination node
+            is_weighted: If True, return weighted paths
 
         Returns:
             list[dict]: List of disaster-aware path information dictionaries
         """
+        if is_weighted:
+            return self.weighted_caminhos_internos_isp_durante_desastre[src][dst]
+
         if (
             src in self.caminhos_internos_isp_durante_desastre
             and dst in self.caminhos_internos_isp_durante_desastre[src]

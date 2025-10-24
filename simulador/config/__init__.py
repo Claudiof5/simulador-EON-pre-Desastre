@@ -64,4 +64,7 @@ __all__ = [
     "FATOR_MODULACAO_3",
     "FATOR_MODULACAO_2",
     "FATOR_MODULACAO_1",
+    "ALPHA",
+    "BETA",
+    "GAMMA",
 ]
