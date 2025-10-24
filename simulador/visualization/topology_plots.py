@@ -632,3 +632,751 @@ def create_topology_layout(
     if layout_type == "shell":
         return nx.shell_layout(topology)
     raise ValueError(f"Unknown layout type: {layout_type}")
+
+
+def visualize_migration_analysis(
+    topology_graph: nx.Graph,
+    lista_de_isps: list,
+    disaster_node: int,
+    max_paths_per_isp: int = 10,
+    figsize: tuple[int, int] = (20, 10),
+) -> tuple[list[dict], dict[tuple[int, int], int], dict[tuple[int, int], int]]:
+    """Visualize datacenter migration analysis across ISPs.
+
+    Args:
+        topology_graph: NetworkX graph of the topology
+        lista_de_isps: List of ISP objects
+        disaster_node: Node affected by disaster
+        max_paths_per_isp: Maximum paths to calculate per ISP
+        figsize: Figure size tuple
+
+    Returns:
+        Tuple of (migration_paths, link_usage_count, directed_link_usage)
+    """
+    from collections import defaultdict
+    from itertools import islice
+
+    migration_paths = []
+    link_usage_count = defaultdict(int)
+    directed_link_usage = defaultdict(int)
+    datacenters_info = []
+
+    # Collect migration paths from all ISPs
+    for isp in lista_de_isps:
+        if not hasattr(isp, "datacenter") or isp.datacenter is None:
+            continue
+
+        datacenter = isp.datacenter
+        src = datacenter.source
+        dst = datacenter.destination
+
+        # Build ISP subgraph
+        isp_subgraph = topology_graph.subgraph(isp.nodes).copy()
+        for edge in isp.edges:
+            if (
+                edge[0] in isp.nodes
+                and edge[1] in isp.nodes
+                and not isp_subgraph.has_edge(edge[0], edge[1])
+                and topology_graph.has_edge(edge[0], edge[1])
+            ):
+                edge_data = topology_graph[edge[0]][edge[1]].copy()
+                isp_subgraph.add_edge(edge[0], edge[1], **edge_data)
+
+        # Calculate k-shortest paths dynamically
+        try:
+            paths = list(
+                islice(
+                    nx.shortest_simple_paths(isp_subgraph, src, dst, weight="weight"),
+                    max_paths_per_isp,
+                )
+            )
+
+            for path in paths:
+                migration_paths.append(
+                    {
+                        "isp_id": isp.isp_id,
+                        "source": src,
+                        "destination": dst,
+                        "path": path,
+                    }
+                )
+
+                # Count link usage
+                for i in range(len(path) - 1):
+                    link = tuple(sorted([path[i], path[i + 1]]))
+                    link_usage_count[link] += 1
+
+                    # Track directed edge for arrow drawing
+                    directed_edge = (path[i], path[i + 1])
+                    directed_link_usage[directed_edge] += 1
+
+        except nx.NetworkXNoPath:
+            print(f"Warning: No path found for ISP {isp.isp_id} from {src} to {dst}")
+
+        datacenters_info.append(
+            {"isp_id": isp.isp_id, "source": src, "destination": dst}
+        )
+
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+    # ========== LEFT PLOT: Topology with migration paths ==========
+    ax1.set_title(
+        "Network Topology - Datacenter Migration Paths", fontsize=16, fontweight="bold"
+    )
+
+    # Layout
+    pos = nx.spring_layout(topology_graph, seed=7)
+
+    # LAYER 1: Background nodes
+    nx.draw_networkx_nodes(
+        topology_graph,
+        pos,
+        node_color="lightgray",
+        node_size=500,
+        edgecolors="black",
+        linewidths=1,
+        alpha=0.5,
+        ax=ax1,
+    )
+
+    # LAYER 2: Background edges (light gray)
+    nx.draw_networkx_edges(
+        topology_graph, pos, edge_color="lightgray", width=1, alpha=0.3, ax=ax1
+    )
+
+    # LAYER 3: Migration path edges with directional arrows
+    if directed_link_usage:
+        max_usage = max(directed_link_usage.values())
+
+        for directed_edge, count in directed_link_usage.items():
+            u, v = directed_edge
+            if topology_graph.has_edge(u, v) or topology_graph.has_edge(v, u):
+                width = 2 + (count / max_usage) * 8
+                alpha = 0.5 + (count / max_usage) * 0.4
+
+                nx.draw_networkx_edges(
+                    topology_graph,
+                    pos,
+                    edgelist=[(u, v)],
+                    edge_color="steelblue",
+                    width=width,
+                    alpha=alpha,
+                    arrows=True,
+                    arrowsize=15 + (count / max_usage) * 10,
+                    arrowstyle="->",
+                    connectionstyle="arc3,rad=0.1",
+                    ax=ax1,
+                )
+
+    # LAYER 4: Source nodes (datacenter sources)
+    source_nodes = [dc["source"] for dc in datacenters_info]
+    if source_nodes:
+        nx.draw_networkx_nodes(
+            topology_graph,
+            pos,
+            nodelist=source_nodes,
+            node_color="orange",
+            node_size=800,
+            edgecolors="darkorange",
+            linewidths=3,
+            ax=ax1,
+            label="Datacenter Source",
+        )
+
+    # LAYER 5: Destination nodes (datacenter destinations)
+    dest_nodes = [dc["destination"] for dc in datacenters_info]
+    if dest_nodes:
+        nx.draw_networkx_nodes(
+            topology_graph,
+            pos,
+            nodelist=dest_nodes,
+            node_color="limegreen",
+            node_size=800,
+            edgecolors="darkgreen",
+            linewidths=3,
+            ax=ax1,
+            label="Datacenter Destination",
+        )
+
+    # LAYER 6: Disaster node (red X)
+    if disaster_node in topology_graph.nodes():
+        nx.draw_networkx_nodes(
+            topology_graph,
+            pos,
+            nodelist=[disaster_node],
+            node_color="red",
+            node_size=1000,
+            node_shape="X",
+            edgecolors="darkred",
+            linewidths=3,
+            ax=ax1,
+            label="Disaster Node",
+        )
+
+    # Node labels
+    nx.draw_networkx_labels(
+        topology_graph, pos, font_size=9, font_weight="bold", ax=ax1
+    )
+
+    ax1.axis("off")
+    ax1.legend(loc="upper right", fontsize=11, framealpha=0.9)
+
+    # ========== RIGHT PLOT: Migration statistics ==========
+    ax2.set_title("Migration Statistics", fontsize=16, fontweight="bold")
+    ax2.axis("off")
+
+    # Summary
+    y_pos = 0.95
+    ax2.text(
+        0.5,
+        y_pos,
+        "Datacenter Migrations Summary",
+        ha="center",
+        va="top",
+        fontsize=14,
+        fontweight="bold",
+        transform=ax2.transAxes,
+        bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
+    )
+
+    y_pos -= 0.1
+    ax2.text(
+        0.5,
+        y_pos,
+        f"Total ISPs with datacenters: {len(datacenters_info)}",
+        ha="center",
+        va="top",
+        fontsize=12,
+        transform=ax2.transAxes,
+    )
+
+    y_pos -= 0.05
+    ax2.text(
+        0.5,
+        y_pos,
+        f"Total migration paths: {len(migration_paths)}",
+        ha="center",
+        va="top",
+        fontsize=12,
+        transform=ax2.transAxes,
+    )
+
+    y_pos -= 0.05
+    ax2.text(
+        0.5,
+        y_pos,
+        f"Unique links used: {len(link_usage_count)}",
+        ha="center",
+        va="top",
+        fontsize=12,
+        transform=ax2.transAxes,
+    )
+
+    # Most used links
+    if link_usage_count:
+        y_pos -= 0.1
+        ax2.text(
+            0.1,
+            y_pos,
+            "Most Used Links:",
+            fontsize=12,
+            fontweight="bold",
+            transform=ax2.transAxes,
+        )
+
+        # Top 10 links
+        sorted_links = sorted(
+            link_usage_count.items(), key=lambda x: x[1], reverse=True
+        )[:10]
+        y_pos -= 0.06
+        for link, count in sorted_links:
+            ax2.text(
+                0.15,
+                y_pos,
+                f"{link[0]} ↔ {link[1]}: {count} paths",
+                fontsize=10,
+                family="monospace",
+                transform=ax2.transAxes,
+            )
+            y_pos -= 0.045
+
+    # ISP-specific migrations
+    if datacenters_info:
+        y_pos -= 0.05
+        ax2.text(
+            0.1,
+            y_pos,
+            "Migrations by ISP:",
+            fontsize=12,
+            fontweight="bold",
+            transform=ax2.transAxes,
+        )
+
+        y_pos -= 0.06
+        for dc in datacenters_info:
+            isp_paths = [p for p in migration_paths if p["isp_id"] == dc["isp_id"]]
+            ax2.text(
+                0.15,
+                y_pos,
+                f"ISP {dc['isp_id']}: {dc['source']} → {dc['destination']} ({len(isp_paths)} paths)",
+                fontsize=10,
+                family="monospace",
+                transform=ax2.transAxes,
+            )
+            y_pos -= 0.045
+
+    plt.tight_layout()
+    plt.show()
+
+    return migration_paths, link_usage_count, directed_link_usage
+
+
+def visualize_isp_usage_analysis(
+    topology_graph: nx.Graph,
+    lista_de_isps: list,
+    selected_link: tuple[int, int] | None = None,
+    figsize: tuple[int, int] = (20, 10),
+) -> None:
+    """Visualize ISP usage across the network.
+
+    Left plot: Full topology with edges colored by number of ISPs using them
+    Right plot: Details about selected link showing which ISPs use it
+
+    Args:
+        topology_graph: NetworkX graph
+        lista_de_isps: List of ISP objects
+        selected_link: Tuple (u, v) representing selected link
+        figsize: Figure size tuple
+    """
+    from collections import defaultdict
+
+    # Calculate ISP usage per link
+    link_isp_count = defaultdict(set)
+
+    for isp in lista_de_isps:
+        for edge in isp.edges:
+            # Normalize edge direction
+            normalized_edge = tuple(sorted(edge))
+            link_isp_count[normalized_edge].add(isp.isp_id)
+
+    # Create figure with two subplots
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+    # ========== LEFT PLOT: Topology with ISP usage coloring ==========
+    ax1.set_title(
+        "Network Topology - Link Sharing Across ISPs", fontsize=16, fontweight="bold"
+    )
+
+    # Layout
+    pos = nx.spring_layout(topology_graph, seed=7)
+
+    # Draw all nodes
+    nx.draw_networkx_nodes(
+        topology_graph,
+        pos,
+        node_color="lightgray",
+        node_size=600,
+        edgecolors="black",
+        linewidths=1.5,
+        ax=ax1,
+    )
+
+    # Draw edges colored by ISP count
+    edge_colors = []
+    edge_widths = []
+    edges_to_draw = []
+
+    for u, v in topology_graph.edges():
+        normalized_edge = tuple(sorted([u, v]))
+        isp_count = len(link_isp_count.get(normalized_edge, set()))
+
+        edges_to_draw.append((u, v))
+        edge_colors.append(isp_count)
+        edge_widths.append(2 + isp_count * 2)  # Thicker = more ISPs
+
+    # Color map
+    max_isps = max(edge_colors) if edge_colors else 1
+    cmap = plt.colormaps["YlOrRd"]
+
+    nx.draw_networkx_edges(
+        topology_graph,
+        pos,
+        edgelist=edges_to_draw,
+        edge_color=edge_colors,
+        edge_cmap=cmap,
+        edge_vmin=0,
+        edge_vmax=max_isps,
+        width=edge_widths,
+        alpha=0.8,
+        ax=ax1,
+    )
+
+    # Colorbar
+    sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=max_isps))
+    sm.set_array([])
+    cbar = plt.colorbar(sm, ax=ax1, shrink=0.8)
+    cbar.set_label("Number of ISPs Using Link", fontsize=12)
+
+    # Node labels
+    nx.draw_networkx_labels(
+        topology_graph, pos, font_size=9, font_weight="bold", ax=ax1
+    )
+
+    ax1.axis("off")
+
+    # ========== RIGHT PLOT: Selected link details ==========
+    ax2.set_title("Link Usage Details", fontsize=16, fontweight="bold")
+    ax2.axis("off")
+
+    if selected_link:
+        normalized_link = tuple(sorted(selected_link))
+        isps_using_link = link_isp_count.get(normalized_link, set())
+
+        # Summary
+        ax2.text(
+            0.5,
+            0.95,
+            f"Link {selected_link[0]} ↔ {selected_link[1]}",
+            ha="center",
+            va="top",
+            fontsize=14,
+            fontweight="bold",
+            transform=ax2.transAxes,
+            bbox=dict(boxstyle="round", facecolor="lightblue", alpha=0.8),
+        )
+
+        ax2.text(
+            0.5,
+            0.85,
+            f"Used by {len(isps_using_link)} ISP(s)",
+            ha="center",
+            va="top",
+            fontsize=12,
+            transform=ax2.transAxes,
+        )
+
+        # List ISPs using this link
+        if isps_using_link:
+            ax2.text(
+                0.1,
+                0.75,
+                "ISPs using this link:",
+                fontsize=12,
+                fontweight="bold",
+                transform=ax2.transAxes,
+            )
+
+            y_pos = 0.7
+            for isp_id in sorted(isps_using_link):
+                ax2.text(
+                    0.15,
+                    y_pos,
+                    f"ISP {isp_id}",
+                    fontsize=10,
+                    family="monospace",
+                    transform=ax2.transAxes,
+                )
+                y_pos -= 0.05
+        else:
+            ax2.text(
+                0.5,
+                0.6,
+                "No ISPs use this link",
+                ha="center",
+                va="top",
+                fontsize=12,
+                transform=ax2.transAxes,
+            )
+    else:
+        ax2.text(
+            0.5,
+            0.5,
+            "Select a link from the dropdown\nto see usage details",
+            ha="center",
+            va="center",
+            fontsize=12,
+            transform=ax2.transAxes,
+        )
+
+    plt.tight_layout()
+    plt.show()
+
+
+def visualize_link_criticality_analysis(
+    topology_graph: nx.Graph,
+    lista_de_isps: list,
+    disaster_node: int,
+    weights_by_link_by_isp: dict,
+    selected_link: tuple[int, int] | None = None,
+    show_bridges_only: bool = False,
+    min_criticality: float = 0.0,
+    disaster_mode: bool = False,
+    figsize: tuple[int, int] = (20, 10),
+) -> dict:
+    """Visualize link criticality analysis with bridge detection.
+
+    Args:
+        topology_graph: NetworkX graph
+        lista_de_isps: List of ISP objects
+        disaster_node: Node affected by disaster
+        weights_by_link_by_isp: Dictionary of weight components by link and ISP
+        selected_link: Tuple (u, v) for selected link to analyze
+        show_bridges_only: If True, only show bridge edges
+        min_criticality: Minimum gamma weight threshold to display
+        disaster_mode: If True, analyze with disaster node removed
+        figsize: Figure size tuple
+
+    Returns:
+        Dictionary with bridge analysis results
+    """
+    from collections import defaultdict
+
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+
+    # Use consistent layout
+    pos = nx.spring_layout(topology_graph, seed=7, k=0.3)
+
+    # ========== Calculate link criticality scores ==========
+    link_criticality = defaultdict(float)
+    link_isp_usage = defaultdict(set)
+
+    # weights_by_link_by_isp is actually current_weights dict
+    if "link_criticality" in weights_by_link_by_isp:
+        for link, crit_weight in weights_by_link_by_isp["link_criticality"].items():
+            normalized_link = tuple(sorted(link))
+            link_criticality[normalized_link] = crit_weight
+
+    # Calculate ISP usage for each link
+    for isp in lista_de_isps:
+        for edge in isp.edges:
+            normalized_edge = tuple(sorted(edge))
+            link_isp_usage[normalized_edge].add(isp.isp_id)
+
+    # ========== LEFT PLOT: Topology with criticality coloring ==========
+    mode_text = "Disaster Mode" if disaster_mode else "Normal Mode"
+    ax1.set_title(
+        f"Network Topology - Link Criticality Heatmap [{mode_text}]",
+        fontsize=16,
+        fontweight="bold",
+    )
+
+    # Draw base topology (nodes)
+    nx.draw_networkx_nodes(
+        topology_graph, pos, node_color="lightblue", node_size=300, ax=ax1
+    )
+
+    # Draw disaster node with X marker if disaster mode is active
+    if disaster_mode and disaster_node in topology_graph.nodes():
+        nx.draw_networkx_nodes(
+            topology_graph,
+            pos,
+            nodelist=[disaster_node],
+            node_color="red",
+            node_size=1000,
+            node_shape="X",
+            edgecolors="darkred",
+            linewidths=3,
+            ax=ax1,
+            label="Disaster Node",
+        )
+
+    # Draw edges with criticality coloring
+    edges_to_draw = []
+    edge_colors = []
+    edge_widths = []
+
+    for u, v in topology_graph.edges():
+        normalized_edge = tuple(sorted([u, v]))
+        criticality = link_criticality.get(normalized_edge, 0.0)
+
+        # Filter by minimum criticality
+        if criticality < min_criticality:
+            continue
+
+        # Filter bridges only if requested
+        if show_bridges_only and criticality == 0.0:
+            continue
+
+        edges_to_draw.append((u, v))
+        edge_colors.append(criticality)
+        edge_widths.append(2 + criticality * 5)  # Thicker for higher criticality
+
+    if edges_to_draw:
+        # Color mapping
+        max_crit = max(edge_colors) if edge_colors else 1.0
+        cmap = plt.cm.RdYlGn_r
+
+        nx.draw_networkx_edges(
+            topology_graph,
+            pos,
+            edgelist=edges_to_draw,
+            edge_color=edge_colors,
+            edge_cmap=cmap,
+            edge_vmin=0,
+            edge_vmax=max_crit,
+            width=edge_widths,
+            alpha=0.8,
+            ax=ax1,
+        )
+
+        # Colorbar
+        sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=0, vmax=max_crit))
+        sm.set_array([])
+        cbar = plt.colorbar(sm, ax=ax1, shrink=0.8)
+        cbar.set_label("Link Criticality (γ)", fontsize=12)
+
+    # Node labels
+    nx.draw_networkx_labels(
+        topology_graph, pos, font_size=8, font_weight="bold", ax=ax1
+    )
+
+    ax1.axis("off")
+    if disaster_mode and disaster_node in topology_graph.nodes():
+        ax1.legend(loc="upper right")
+
+    # ========== RIGHT PLOT: Bridge analysis or link details ==========
+    if selected_link:
+        # Show details for selected link
+        ax2.set_title(
+            f"Link Analysis: {selected_link[0]} ↔ {selected_link[1]}",
+            fontsize=16,
+            fontweight="bold",
+        )
+        ax2.axis("off")
+
+        normalized_link = tuple(sorted(selected_link))
+        criticality = link_criticality.get(normalized_link, 0.0)
+        isps_using = link_isp_usage.get(normalized_link, set())
+
+        # Summary
+        ax2.text(
+            0.5,
+            0.95,
+            f"Link {selected_link[0]} ↔ {selected_link[1]}",
+            ha="center",
+            va="top",
+            fontsize=14,
+            fontweight="bold",
+            transform=ax2.transAxes,
+            bbox=dict(boxstyle="round", facecolor="lightcoral", alpha=0.8),
+        )
+
+        ax2.text(
+            0.5,
+            0.85,
+            f"Criticality: {criticality:.3f}",
+            ha="center",
+            va="top",
+            fontsize=12,
+            transform=ax2.transAxes,
+        )
+
+        ax2.text(
+            0.5,
+            0.8,
+            f"Used by {len(isps_using)} ISP(s)",
+            ha="center",
+            va="top",
+            fontsize=12,
+            transform=ax2.transAxes,
+        )
+
+        # List ISPs
+        if isps_using:
+            ax2.text(
+                0.1,
+                0.7,
+                "ISPs using this link:",
+                fontsize=12,
+                fontweight="bold",
+                transform=ax2.transAxes,
+            )
+
+            y_pos = 0.65
+            for isp_id in sorted(isps_using):
+                ax2.text(
+                    0.15,
+                    y_pos,
+                    f"ISP {isp_id}",
+                    fontsize=10,
+                    family="monospace",
+                    transform=ax2.transAxes,
+                )
+                y_pos -= 0.05
+    else:
+        # Show bridge ranking
+        ax2.set_title("Bridge Links Ranked by Impact", fontsize=16, fontweight="bold")
+        ax2.axis("off")
+
+        # Get bridges sorted by ISP count
+        bridges_with_isp_count = []
+        for link, criticality in link_criticality.items():
+            if criticality > 0:  # Only bridges
+                isp_count = len(link_isp_usage.get(link, set()))
+                bridges_with_isp_count.append((link, criticality, isp_count))
+
+        # Sort by ISP count (descending)
+        bridges_with_isp_count.sort(key=lambda x: x[2], reverse=True)
+
+        if bridges_with_isp_count:
+            ax2.text(
+                0.5,
+                0.95,
+                f"Found {len(bridges_with_isp_count)} Bridge Links",
+                ha="center",
+                va="top",
+                fontsize=14,
+                fontweight="bold",
+                transform=ax2.transAxes,
+                bbox=dict(boxstyle="round", facecolor="lightcoral", alpha=0.8),
+            )
+
+            y_pos = 0.85
+            for i, (link, criticality, isp_count) in enumerate(
+                bridges_with_isp_count[:15]
+            ):  # Top 15
+                ax2.text(
+                    0.1,
+                    y_pos,
+                    f"{i + 1}. {link[0]} ↔ {link[1]}",
+                    fontsize=10,
+                    family="monospace",
+                    transform=ax2.transAxes,
+                )
+                ax2.text(
+                    0.6,
+                    y_pos,
+                    f"γ={criticality:.3f}",
+                    fontsize=10,
+                    family="monospace",
+                    transform=ax2.transAxes,
+                )
+                ax2.text(
+                    0.8,
+                    y_pos,
+                    f"{isp_count} ISPs",
+                    fontsize=10,
+                    family="monospace",
+                    transform=ax2.transAxes,
+                )
+                y_pos -= 0.05
+        else:
+            ax2.text(
+                0.5,
+                0.5,
+                "No bridge links found",
+                ha="center",
+                va="center",
+                fontsize=12,
+                transform=ax2.transAxes,
+            )
+
+    plt.tight_layout()
+    plt.show()
+
+    return {
+        "link_criticality": dict(link_criticality),
+        "link_isp_usage": dict(link_isp_usage),
+        "bridges": bridges_with_isp_count if not selected_link else [],
+    }

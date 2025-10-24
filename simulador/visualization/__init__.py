@@ -6,14 +6,21 @@ Modules:
     - availability_plots: Availability metrics across time, distance, nodes
     - traffic_plots: Traffic patterns, blocking rates, network utilization
     - topology_plots: Network topology visualization, ISPs, disasters, paths
+    - weight_visualization: Weight-specific visualization functions
 """
 
 from __future__ import annotations
 
-from simulador.visualization import availability_plots, topology_plots, traffic_plots
+from simulador.visualization import (
+    availability_plots,
+    topology_plots,
+    traffic_plots,
+    weight_visualization,
+)
 
 __all__ = [
     "availability_plots",
     "topology_plots",
     "traffic_plots",
+    "weight_visualization",
 ]
