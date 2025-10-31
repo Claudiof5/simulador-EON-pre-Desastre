@@ -61,11 +61,22 @@ class Request:
         self.distacia: int | None = None
 
     def bloqueia_requisicao(self, tempo_criacao: float) -> None:
+        """Register that a request was blocked.
+
+        Flow: Time is advanced to creation time (tempo_criacao), then allocation is attempted.
+        If blocked, this method is called at env.now = tempo_criacao.
+        We preserve the original scheduled tempo_criacao rather than overwriting with env.now.
+        """
         self.numero_de_slots = None
         self.caminho = None
         self.tamanho_do_caminho = None
         self.index_de_inicio_e_final = None
-        self.tempo_criacao = tempo_criacao
+        # Preserve pre-generated tempo_criacao if it exists
+        # Blocking happens at creation time, so env.now should equal tempo_criacao
+        # But we preserve the original scheduled time to ensure accuracy
+        if self.tempo_criacao is None:
+            self.tempo_criacao = tempo_criacao
+        # Otherwise preserve the pre-generated scheduled time
         self.tempo_desalocacao = None
         self.distacia = None
         self.bloqueada = True
@@ -84,7 +95,13 @@ class Request:
         self.caminho = caminho
         self.tamanho_do_caminho = tamanho_do_caminho
         self.index_de_inicio_e_final = index_de_inicio_e_final
-        self.tempo_criacao = tempo_criacao
+        # Preserve pre-generated tempo_criacao if it exists
+        # Flow: Time is advanced to creation time (tempo_criacao), then allocation is attempted.
+        # If allocated, this method is called at env.now = tempo_criacao, and deallocation starts.
+        # We preserve the original scheduled tempo_criacao rather than overwriting with env.now.
+        if self.tempo_criacao is None:
+            self.tempo_criacao = tempo_criacao
+        # Otherwise preserve the pre-generated scheduled time
         self.tempo_desalocacao = tempo_desalocacao
         self.distacia = distancia
         self.bloqueada = False

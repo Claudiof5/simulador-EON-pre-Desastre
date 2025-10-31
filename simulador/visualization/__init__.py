@@ -12,6 +12,7 @@ Modules:
 from __future__ import annotations
 
 from simulador.visualization import (
+    accumulated_traffic,
     availability_plots,
     topology_plots,
     traffic_plots,
@@ -19,6 +20,7 @@ from simulador.visualization import (
 )
 
 __all__ = [
+    "accumulated_traffic",
     "availability_plots",
     "topology_plots",
     "traffic_plots",

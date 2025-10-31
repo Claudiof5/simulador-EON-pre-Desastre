@@ -89,11 +89,26 @@ class ISP:
         )
 
     def iniciar_migracao(self, simulador: Simulator) -> Generator:
+        """Start migration process and switch ISP routing at appropriate times.
+
+        This manages:
+        1. Switching to disaster routing at migration reaction time
+        2. Starting datacenter migration (only if runtime migration is enabled)
+        3. Switching back to primary routing after disaster ends
+        """
         if self.datacenter is None:
             return
+
+        # Wait until reaction time, then switch to disaster routing
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
         self.roteamento_atual = self.roteamento_desastre
-        self.datacenter.iniciar_migracao(simulador, self)
+
+        # Only start datacenter migration if using runtime mode (no pre-generated requests)
+        # When lista_de_requisicoes is provided, migration requests are pre-generated
+        if simulador.lista_de_requisicoes is None:
+            self.datacenter.iniciar_migracao(simulador, self)
+
+        # After disaster ends, switch back to primary routing
         yield simulador.env.timeout(
             (simulador.desastre.start + simulador.desastre.duration) - simulador.env.now
         )

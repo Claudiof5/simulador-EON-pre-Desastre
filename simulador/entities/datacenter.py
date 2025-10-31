@@ -65,6 +65,7 @@ class Datacenter:
         ):
             requisicao = self.pega_requisicao(req_id, simulador, isp.isp_id)
             Metrics.adiciona_requisicao(requisicao)
+            requisicao.requisicao_de_migracao = True
             bandwidth = requisicao.bandwidth
             req_id += 1
             yield from self.espera_requisicao(requisicao, simulador.env, taxa_mensagens)
