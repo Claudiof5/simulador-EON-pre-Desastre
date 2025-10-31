@@ -159,7 +159,7 @@ class Simulator:
             Request: The network request to process
 
         """
-        if self.lista_de_requisicoes:
+        if self.lista_de_requisicoes and len(self.lista_de_requisicoes) > 0:
             requisicao = self.lista_de_requisicoes.pop(0)
             Metrics.adiciona_requisicao(requisicao)
             return requisicao

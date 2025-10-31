@@ -126,11 +126,15 @@ class ISPGenerator:
 
                 # nodes_from_each_distance = dict(nodes_from_each_distance)
 
-                isp_nodes.extend(nodes_from_each_distance[1])
-                isp_nodes.extend(nodes_from_each_distance[2])
+                if 1 in nodes_from_each_distance:
+                    isp_nodes.extend(nodes_from_each_distance[1])
+                if 2 in nodes_from_each_distance:
+                    isp_nodes.extend(nodes_from_each_distance[2])
 
+                # Only try to process distance 3 nodes if they exist
+                distance_3_nodes = nodes_from_each_distance.get(3, [])
                 aux = ISPGenerator.__randomly_exclude_elements(
-                    topology, nodes_from_each_distance[3], 0.70, isp_nodes
+                    topology, distance_3_nodes, 0.70, isp_nodes
                 )
 
                 isp_nodes.extend(aux)

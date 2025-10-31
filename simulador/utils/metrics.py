@@ -539,6 +539,12 @@ class Metrics:
         df.reset_index(inplace=True)
         df.rename(columns={"index": "Index da Requisição"}, inplace=True)
 
+        # Sort by tempo_criacao to ensure correct temporal order
+        # The requisicoes list might not be in tempo_criacao order if requests were
+        # added from multiple sources (main loop, runtime migrations, etc.)
+        if "tempo_criacao" in df.columns:
+            df = df.sort_values(by="tempo_criacao", na_position="last")
+
         df.to_csv(f"{nome}.csv")
         return df
 

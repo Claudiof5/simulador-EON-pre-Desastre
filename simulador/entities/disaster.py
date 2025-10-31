@@ -47,6 +47,9 @@ class Disaster:
     def iniciar_desastre(self, simulador: "Simulator") -> None:
         simulador.env.process(self.__gerar_falhas(simulador))
 
+        # Always start ISP routing switches for all ISPs
+        # This ensures roteamento_atual switches to roteamento_desastre at reaction times
+        # and switches back after disaster ends, regardless of pre-generated vs runtime migration
         for isp in simulador.lista_de_isps:
             simulador.env.process(isp.iniciar_migracao(simulador))
 

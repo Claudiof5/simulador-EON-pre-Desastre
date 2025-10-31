@@ -69,7 +69,7 @@ VARIANCIA_DURACAO_DESASTRE: float = DURACAO_DESASTRE * 0.1
 # Quanto aos datacenters
 # MIGRATION_NETWORK_FRACTION: What fraction of network capacity can ALL datacenters
 # use for migration traffic (e.g., 0.2 = 20% of network capacity for migration)
-MIGRATION_NETWORK_FRACTION: float = 0.15  # 20% of network for ALL migration traffic
+MIGRATION_NETWORK_FRACTION: float = 0.25  # 20% of network for ALL migration traffic
 
 # Calculate throughput in SLOTS per second for each datacenter
 # Total migration capacity in requests/s
@@ -129,3 +129,8 @@ BETA: float = 0.2  # This is the weight of the migration traffic in the weighted
 GAMMA: float = (
     0.4  # This is the weight of the criticality of the links in the weighted paths
 )
+
+# Traffic generation weights for hybrid ISP selection
+TRAFFIC_WEIGHT_EDGES: float = 0.5  # 50% weight on network capacity (edges)
+TRAFFIC_WEIGHT_NODES: float = 0.3  # 30% weight on network size (nodes)
+TRAFFIC_WEIGHT_ISOLATION: float = 0.2  # 20% weight on ISP isolation
