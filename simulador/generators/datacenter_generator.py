@@ -13,6 +13,7 @@ from simulador.config.settings import (
 )
 
 if TYPE_CHECKING:
+    from simulador.config.simulation_settings import ScenarioConfig
     from simulador.entities.datacenter import Datacenter
     from simulador.entities.disaster import Disaster
 
@@ -20,10 +21,31 @@ if TYPE_CHECKING:
 class DatacenterGenerator:
     @staticmethod
     def gerar_datacenter(
-        disaster: "Disaster", topology: nx.Graph, nodes_isp: list, specific_values=None
+        disaster: "Disaster",
+        topology: nx.Graph,
+        nodes_isp: list,
+        specific_values=None,
+        config: "ScenarioConfig | None" = None,
     ) -> "Datacenter":
+        """Generate a datacenter for ISP migration.
+        
+        Args:
+            disaster: Disaster scenario
+            topology: Network topology graph
+            nodes_isp: List of nodes in the ISP
+            specific_values: Optional specific values to override defaults
+            config: Optional ScenarioConfig with datacenter parameters
+            
+        Returns:
+            Datacenter object
+        """
         # Import here to avoid circular dependency
         from simulador.entities.datacenter import Datacenter
+        
+        # Use config if provided
+        if config is None:
+            from simulador.config.simulation_settings import ScenarioConfig
+            config = ScenarioConfig()
 
         if not specific_values:
             datacenter_source = int(
@@ -44,12 +66,14 @@ class DatacenterGenerator:
             )
 
             tempo_de_inicio = disaster.start - np.random.normal(
-                TEMPO_DE_REACAO, VARIANCIA_TEMPO_DE_REACAO
+                config.datacenter_reaction_time, config.datacenter_reaction_variance
             )
             tamanho_datacenter = np.random.normal(
-                TAMANHO_DATACENTER, VARIANCIA_TAMANHO_DATACENTER
+                config.datacenter_size, config.datacenter_size_variance
             )
-            througput_datacenter = np.random.normal(THROUGHPUT, VARIANCIA_THROUGHPUT)
+            througput_datacenter = np.random.normal(
+                config.datacenter_throughput, config.datacenter_throughput_variance
+            )
             return Datacenter(
                 datacenter_source,
                 datacenter_destination,

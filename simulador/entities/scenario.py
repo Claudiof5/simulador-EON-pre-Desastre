@@ -32,6 +32,7 @@ class Scenario:
         self.lista_de_isps: list[ISP] = lista_de_isps
         self.desastre: Disaster = desastre
         self.lista_de_requisicoes: list[Request] | None = lista_de_requisicoes
+        self.config = None  # Will be set by ScenarioGenerator if config was provided
 
     def retorna_atributos(
         self,

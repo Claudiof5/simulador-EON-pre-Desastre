@@ -90,12 +90,13 @@ def calculate_migration_weights(
 
 
 def calculate_link_criticality(
-    topology: Any, disaster_node: int, gamma: float = 0.4
+    graph: Any, lista_de_isps: list, disaster_node: int, gamma: float = 0.4
 ) -> dict[tuple[int, int], dict[str, float]]:
     """Calculate link criticality based on bridges across all ISPs.
 
     Args:
-        topology: Topology object with topology.graph attribute
+        graph: NetworkX graph representing the network
+        lista_de_isps: List of ISP objects
         disaster_node: Node affected by disaster
         gamma: Weight factor for link criticality (default: 0.4)
 
@@ -104,17 +105,17 @@ def calculate_link_criticality(
     """
     link_criticality = {}
 
-    for isp in topology.lista_de_isps:
+    for isp in lista_de_isps:
         # Create ISP subgraph
-        isp_graph = topology.topology.subgraph(isp.nodes).copy()
+        isp_graph = graph.subgraph(isp.nodes).copy()
         for edge in isp.edges:
             if (
                 edge[0] in isp.nodes
                 and edge[1] in isp.nodes
                 and not isp_graph.has_edge(edge[0], edge[1])
-                and topology.topology.has_edge(edge[0], edge[1])
+                and graph.has_edge(edge[0], edge[1])
             ):
-                edge_data = topology.topology[edge[0]][edge[1]].copy()
+                edge_data = graph[edge[0]][edge[1]].copy()
                 isp_graph.add_edge(edge[0], edge[1], **edge_data)
 
         # Remove disaster node
@@ -149,7 +150,7 @@ def calculate_link_criticality(
     link_criticality_return = {}
     for link, data in link_criticality.items():
         normalized = data["bridge_count"]
-        link_criticality_return[link] = normalized / len(topology.lista_de_isps) * gamma
+        link_criticality_return[link] = normalized / len(lista_de_isps) * gamma
 
     return link_criticality_return
 
