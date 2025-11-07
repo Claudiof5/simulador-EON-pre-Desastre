@@ -12,7 +12,6 @@ from simulador.config.settings import (
     CLASS_WEIGHT,
     HOLDING_TIME,
     REQUISICOES_POR_SEGUNDO,
-    SLOT_SIZE,
     TRAFFIC_WEIGHT_EDGES,
     TRAFFIC_WEIGHT_ISOLATION,
     TRAFFIC_WEIGHT_NODES,
@@ -27,6 +26,7 @@ if TYPE_CHECKING:
     import networkx as nx
 
     from simulador import Topology
+    from simulador.config.simulation_settings import ScenarioConfig
     from simulador.entities.datacenter import Datacenter
     from simulador.entities.disaster import Disaster
     from simulador.entities.isp import ISP
@@ -405,6 +405,7 @@ class TrafficGenerator:
         lista_de_isps: list[ISP],
         desastre: Disaster,
         trafego_subrede: bool = True,
+        config: ScenarioConfig | None = None,
     ) -> list[Request]:
         """Generate a list of network requests including datacenter requests.
 
@@ -415,20 +416,26 @@ class TrafficGenerator:
             desastre: Disaster scenario
             trafego_subrede: If True, generates subnet traffic (same ISP),
                            if False, uses original behavior (any ISP)
+            config: Optional ScenarioConfig with traffic parameters
 
         Returns:
             list[Request]: List of generated network requests sorted by creation time
 
         """
+        # Use config if provided, otherwise fall back to settings.py
+        if config is None:
+            config = ScenarioConfig()
+
+        # Calculate request rate from config's computed properties
+        req_rate = config.requisicoes_por_segundo
+
         lista_de_requisicoes_nao_processadas: list[Request] = []
         tempo_de_criacao: float = 0.0
         for i in range(1, numero_de_requisicoes + 1):
             requisicao = TrafficGenerator.gerar_requisicao(
                 topology, i, trafego_subrede=trafego_subrede
             )
-            tempo_de_criacao = tempo_de_criacao + random.expovariate(
-                REQUISICOES_POR_SEGUNDO
-            )
+            tempo_de_criacao = tempo_de_criacao + random.expovariate(req_rate)
             requisicao.tempo_criacao = tempo_de_criacao
             lista_de_requisicoes_nao_processadas.append(requisicao)
 
@@ -436,7 +443,7 @@ class TrafficGenerator:
             if isp.datacenter is not None:
                 datacenter_reqs = (
                     TrafficGenerator.gerar_lista_de_requisicoes_datacenter(
-                        isp.datacenter, desastre, topology, isp.isp_id
+                        isp.datacenter, desastre, topology, isp.isp_id, config=config
                     )
                 )
                 if datacenter_reqs is not None:
@@ -458,6 +465,7 @@ class TrafficGenerator:
         desastre: Disaster,
         topologia: Topology,
         isp_id: int,
+        config: ScenarioConfig | None = None,
     ) -> list[Request]:
         """Generate migration requests before disaster.
 
@@ -466,14 +474,25 @@ class TrafficGenerator:
         blocked or successfully allocated.
 
         Migration starts at tempo_de_reacao and continues until disaster starts.
+
+        Args:
+            datacenter: Datacenter object
+            desastre: Disaster scenario
+            topologia: Network topology
+            isp_id: ISP identifier
+            config: Optional ScenarioConfig with bandwidth/slot parameters
         """
+        # Use config if provided
+        if config is None:
+            config = ScenarioConfig()
+
         tempo_de_criacao = datacenter.tempo_de_reacao
         req_id = 0
         lista_de_requisicoes = []
 
         # Calculate request rate based on throughput and average bandwidth
-        avg_bandwidth = sum(BANDWIDTH) / len(BANDWIDTH)
-        avg_slots_per_request = avg_bandwidth / SLOT_SIZE
+        avg_bandwidth = sum(config.bandwidth_options) / len(config.bandwidth_options)
+        avg_slots_per_request = avg_bandwidth / config.slot_size
         taxa_mensagens = datacenter.throughput_por_segundo / avg_slots_per_request
 
         # Generate requests until disaster starts

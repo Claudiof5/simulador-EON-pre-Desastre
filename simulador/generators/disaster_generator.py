@@ -1,3 +1,5 @@
+from typing import TYPE_CHECKING
+
 import networkx as nx
 import numpy as np
 
@@ -10,10 +12,36 @@ from simulador.config.settings import (
 from simulador.entities.disaster import Disaster
 from simulador.entities.isp import ISP
 
+if TYPE_CHECKING:
+    from simulador.config.simulation_settings import ScenarioConfig
+
 
 class DisasterGenerator:
     @staticmethod
-    def generate_disaster(topology: nx.Graph, list_of_isp: list[ISP]) -> Disaster:
+    def generate_disaster(
+        topology: nx.Graph,
+        list_of_isp: list[ISP],
+        config: "ScenarioConfig | None" = None,
+    ) -> Disaster:
+        """Generate a disaster scenario.
+        
+        Args:
+            topology: Network topology graph
+            list_of_isp: List of ISPs
+            config: Optional ScenarioConfig with disaster timing parameters
+            
+        Returns:
+            Disaster object with timing and affected nodes/links
+        """
+        # Use config if provided
+        if config is None:
+            from simulador.config.simulation_settings import ScenarioConfig
+            config = ScenarioConfig()
+        
+        inicio_desastre = config.disaster_start
+        variancia_inicio = config.disaster_start_variance
+        duracao_desastre = config.disaster_duration
+        variancia_duracao = config.disaster_duration_variance
         list_of_isp_nodes: list[list[int]] = [isp.nodes for isp in list_of_isp]
         intersection = list(
             set(list_of_isp_nodes[0]).intersection(*list_of_isp_nodes[1:])
@@ -30,7 +58,7 @@ class DisasterGenerator:
         random_edges = [edges[i] for i in random_index]
 
         tempos = [
-            np.random.normal(INICIO_DESASTRE, VARIANCIA_INICIO_DESASTRE)
+            np.random.normal(inicio_desastre, variancia_inicio)
             for _ in range(len(random_edges) + len(disaster_center))
         ]
         min_value = min(tempos)
@@ -38,7 +66,7 @@ class DisasterGenerator:
         tempos_finais = [x - min_value for x in tempos]
 
         duration = max(
-            np.random.normal(DURACAO_DESASTRE, VARIANCIA_DURACAO_DESASTRE),
+            np.random.normal(duracao_desastre, variancia_duracao),
             max_value - min_value,
         )
 

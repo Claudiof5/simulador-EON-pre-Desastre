@@ -13,7 +13,6 @@ from typing import TYPE_CHECKING
 import networkx as nx
 
 from simulador.config.settings import (
-    ALPHA,
     DISTANCIA_MODULACAO_2,
     DISTANCIA_MODULACAO_3,
     DISTANCIA_MODULACAO_4,
@@ -27,6 +26,7 @@ from simulador.routing.base import RoutingBase
 from simulador.routing.subnet import FirstFitSubnet
 
 if TYPE_CHECKING:
+    from simulador.config.simulation_settings import ScenarioConfig
     from simulador.entities.datacenter import Datacenter
     from simulador.entities.disaster import Disaster
     from simulador.main import Simulator
@@ -80,12 +80,24 @@ class ISP:
         ] = {}
 
     def define_datacenter(
-        self, disaster: Disaster, topology: nx.Graph, specific_values=None
+        self,
+        disaster: Disaster,
+        topology: nx.Graph,
+        specific_values=None,
+        config: ScenarioConfig | None = None,
     ) -> None:
+        """Define datacenter for this ISP.
+
+        Args:
+            disaster: Disaster scenario
+            topology: Network topology graph
+            specific_values: Optional specific values for datacenter
+            config: Optional ScenarioConfig with datacenter parameters
+        """
         from simulador.generators.datacenter_generator import DatacenterGenerator
 
         self.datacenter = DatacenterGenerator.gerar_datacenter(
-            disaster, topology, self.nodes, specific_values
+            disaster, topology, self.nodes, specific_values, config=config
         )
 
     def iniciar_migracao(self, simulador: Simulator) -> Generator:
@@ -180,6 +192,7 @@ class ISP:
         numero_de_caminhos: int = 10,
         lista_de_isps: list[ISP] | None = None,
         weights_by_link_by_isp: dict | None = None,
+        config: ScenarioConfig | None = None,
     ) -> None:
         """Compute disaster-aware shortest paths between all ISP nodes.
 
@@ -192,7 +205,13 @@ class ISP:
             numero_de_caminhos: Number of alternative paths to compute per node pair
             lista_de_isps: Optional list of all ISPs (for weight calculation)
             weights_by_link_by_isp: Optional precomputed weights by ISP
+            config: Optional ScenarioConfig with routing weight parameters
         """
+        # Use config if provided
+        if config is None:
+            from simulador.config.simulation_settings import ScenarioConfig
+
+            config = ScenarioConfig()
         # Create two subgraphs:
         # 1. Full ISP subgraph (for traffic from/to disaster node)
         isp_subgraph_full = self._criar_subgrafo_isp(topology)
@@ -220,10 +239,39 @@ class ISP:
                 isp_subgraph_disaster_aware, self.isp_id, weights_by_link_by_isp
             )
         elif lista_de_isps is not None:
-            # Calculate weights if list of ISPs is provided
-            weights_by_link_by_isp = weights.calculate_isp_usage_weights(
-                lista_de_isps, ALPHA
+            # Calculate ALL weights if list of ISPs is provided, using config values
+            # 1. ISP usage weights (alpha)
+            isp_usage_weights = weights.calculate_isp_usage_weights(
+                lista_de_isps, config.alpha
             )
+
+            # 2. Migration weights (beta)
+            migration_weights = weights.calculate_migration_weights(
+                lista_de_isps, config.beta
+            )
+
+            # 3. Link criticality weights (gamma)
+            link_criticality_weights = weights.calculate_link_criticality(
+                topology, lista_de_isps, node_desastre, config.gamma
+            )
+
+            # 4. Combine all weights
+            combined_weights = weights.calculate_weights_by_isps(
+                lista_de_isps,
+                isp_usage_weights,
+                migration_weights,
+                link_criticality_weights,
+            )
+
+            # Extract "total" weight values for graph weighting
+            # create_weighted_graph expects dict[isp_id][link] = float
+            # but calculate_weights_by_isps returns dict[isp_id][link] = {"total": float, ...}
+            weights_by_link_by_isp = {}
+            for isp_id, links in combined_weights.items():
+                weights_by_link_by_isp[isp_id] = {
+                    link: weight_dict["total"] for link, weight_dict in links.items()
+                }
+
             weighted_isp_subgraph_full = weights.create_weighted_graph(
                 isp_subgraph_full, self.isp_id, weights_by_link_by_isp
             )
