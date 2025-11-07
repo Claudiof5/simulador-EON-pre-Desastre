@@ -14,6 +14,7 @@ from __future__ import annotations
 from simulador.visualization import (
     accumulated_traffic,
     availability_plots,
+    comparison_table,
     topology_plots,
     traffic_plots,
     weight_visualization,
@@ -22,6 +23,7 @@ from simulador.visualization import (
 __all__ = [
     "accumulated_traffic",
     "availability_plots",
+    "comparison_table",
     "topology_plots",
     "traffic_plots",
     "weight_visualization",
