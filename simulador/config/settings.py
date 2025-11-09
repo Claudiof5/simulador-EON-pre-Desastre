@@ -124,10 +124,10 @@ FATOR_MODULACAO_3: int = 3  # High modulation factor
 FATOR_MODULACAO_2: int = 2  # Medium modulation factor
 FATOR_MODULACAO_1: int = 1  # Lowest modulation factor
 
-ALPHA: float = 0.6  # This is the weight of the ISP usage in the weighted paths
-BETA: float = 0.2  # This is the weight of the migration traffic in the weighted paths
+ALPHA: float = 0.5  # This is the weight of the ISP usage in the weighted paths
+BETA: float = 0.5  # This is the weight of the migration traffic in the weighted paths
 GAMMA: float = (
-    0.4  # This is the weight of the criticality of the links in the weighted paths
+    0.5  # This is the weight of the criticality of the links in the weighted paths
 )
 
 # Traffic generation weights for hybrid ISP selection

@@ -14,7 +14,7 @@ from simulador.entities.scenario import Scenario
 from simulador.generators.disaster_generator import DisasterGenerator
 from simulador.generators.isp_generator import ISPGenerator
 from simulador.generators.traffic_generator import TrafficGenerator
-from simulador.routing import FirstFit, FirstFitWeightedSubnetDisasterAware
+from simulador.routing import FirstFit
 from simulador.routing.base import RoutingBase
 
 
@@ -172,25 +172,19 @@ class ScenarioGenerator:
 
     @staticmethod
     def gerar_cenarios_com_diferentes_pesos(
-        topology: nx.Graph,
-        disaster_node: int,
+        base_scenario: Scenario,
         lista_de_pesos: list[tuple[float, float, float]],
-        base_config: ScenarioConfig | None = None,
-        roteamento_de_desastre: type[RoutingBase] | None = None,
     ) -> list[Scenario]:
-        """Generate multiple scenarios with same traffic but different routing weights.
+        """Generate multiple scenario variants with different routing weights.
 
-        This function is useful for comparing how different routing weight configurations
-        (alpha, beta, gamma) affect the same traffic pattern and network conditions.
+        Takes an existing scenario and creates copies with different weight configurations.
+        Each copy has the same topology, ISPs, disaster, and traffic, but different
+        routing weights (alpha, beta, gamma) and recomputed weighted paths.
 
         Args:
-            topology: Network topology graph
-            disaster_node: Specific node that will fail during disaster
+            base_scenario: Existing Scenario object to use as template
             lista_de_pesos: List of (alpha, beta, gamma) tuples to test
                            Example: [(0.6, 0.2, 0.2), (0.8, 0.1, 0.1), (0.2, 0.6, 0.2)]
-            base_config: Optional base ScenarioConfig (if None, uses defaults)
-                        The routing weights will be overridden by lista_de_pesos
-            roteamento_de_desastre: Disaster routing algorithm (if None, uses default)
 
         Returns:
             List of Scenario objects, one per weight configuration.
@@ -201,23 +195,6 @@ class ScenarioGenerator:
             - Same request list (identical traffic)
             - Different routing weights (alpha, beta, gamma)
             - Different weighted paths (computed per config)
-
-        Example:
-            >>> # Compare ISP-priority vs migration-aware vs criticality-aware
-            >>> weight_configs = [
-            ...     (0.8, 0.1, 0.1),  # High ISP priority
-            ...     (0.2, 0.6, 0.2),  # Avoid migration paths
-            ...     (0.2, 0.1, 0.7),  # Avoid critical links
-            ... ]
-            >>> scenarios = ScenarioGenerator.gerar_cenarios_com_diferentes_pesos(
-            ...     topology,
-            ...     disaster_node=10,
-            ...     lista_de_pesos=weight_configs
-            ... )
-            >>> # Now run each scenario and compare results
-            >>> for scenario in scenarios:
-            ...     print(f"Config: α={scenario.config.alpha}, β={scenario.config.beta}, γ={scenario.config.gamma}")
-            ...     results = run_simulation(scenario)
         """
         if not lista_de_pesos:
             raise ValueError("lista_de_pesos must contain at least one weight tuple")
@@ -230,54 +207,27 @@ class ScenarioGenerator:
                     f"All weights must be in [0, 1]"
                 )
 
-        # Use provided base config or create default
-        if base_config is None:
-            base_config = ScenarioConfig()
-
-        # Use provided routing algorithm or default from config
-        if roteamento_de_desastre is None:
-            roteamento_de_desastre = FirstFitWeightedSubnetDisasterAware
-
-        # Get first weight configuration
-        alpha_0, beta_0, gamma_0 = lista_de_pesos[0]
-
-        # Create config for first scenario with first weight set
-        first_config = base_config.copy_with(
-            name=f"{base_config.name}_alpha{alpha_0:.2f}_beta{beta_0:.2f}_gamma{gamma_0:.2f}",
-            alpha=alpha_0,
-            beta=beta_0,
-            gamma=gamma_0,
-            metadata={
-                **base_config.metadata,
-                "weight_variation": True,
-                "weight_index": 0,
-            },
+        # Get base config from scenario or create default
+        base_config = (
+            base_scenario.config
+            if base_scenario.config is not None
+            else ScenarioConfig()
         )
 
-        # Generate base scenario with first weight configuration
-        print(
-            f"Generating base scenario with α={alpha_0:.2f}, β={beta_0:.2f}, γ={gamma_0:.2f}"
-        )
-        base_scenario = ScenarioGenerator.gerar_cenario(
-            topology,
-            disaster_node=disaster_node,
-            retornar_objetos=True,
-            retorna_lista_de_requisicoes=True,
-            numero_de_requisicoes=0,  # Use config default
-            roteamento_de_desastre=roteamento_de_desastre,
-            config=first_config,
-        )
-        base_scenario = cast(Scenario, base_scenario)
+        # Get disaster node from scenario
+        disaster_node = None
+        if base_scenario.desastre.list_of_dict_node_per_start_time:
+            disaster_node = base_scenario.desastre.list_of_dict_node_per_start_time[0][
+                "node"
+            ]
 
-        lista_de_cenarios: list[Scenario] = [base_scenario]
+        lista_de_cenarios: list[Scenario] = []
 
-        # For additional weight configurations, create scenarios with:
-        # - Same topology, ISPs, disaster, and requests (deep copy)
-        # - Different routing weights
-        # - Recomputed weighted paths
-        for idx, (alpha, beta, gamma) in enumerate(lista_de_pesos[1:], start=1):
+        # Create one scenario per weight configuration
+        for idx, (alpha, beta, gamma) in enumerate(lista_de_pesos):
             print(
-                f"Creating variant {idx} with α={alpha:.2f}, β={beta:.2f}, γ={gamma:.2f}"
+                f"Creating scenario variant {idx + 1}/{len(lista_de_pesos)} "
+                f"with α={alpha:.2f}, β={beta:.2f}, γ={gamma:.2f}"
             )
 
             # Create config with new weights
@@ -290,6 +240,7 @@ class ScenarioGenerator:
                     **base_config.metadata,
                     "weight_variation": True,
                     "weight_index": idx,
+                    "base_scenario": base_config.name,
                 },
             )
 
@@ -301,19 +252,20 @@ class ScenarioGenerator:
 
             # Recompute disaster-aware paths with NEW weights
             # This is crucial - the weighted paths depend on alpha, beta, gamma
-            for isp in novo_cenario.lista_de_isps:
-                isp.computar_caminhos_internos_durante_desastre(
-                    novo_cenario.topology.topology,
-                    disaster_node,
-                    variant_config.numero_de_caminhos,
-                    lista_de_isps=novo_cenario.lista_de_isps,
-                    config=variant_config,  # ← New config with different weights!
-                )
+            if disaster_node is not None:
+                for isp in novo_cenario.lista_de_isps:
+                    isp.computar_caminhos_internos_durante_desastre(
+                        novo_cenario.topology.topology,
+                        disaster_node,
+                        variant_config.numero_de_caminhos,
+                        lista_de_isps=novo_cenario.lista_de_isps,
+                        config=variant_config,  # ← New config with different weights!
+                    )
 
             lista_de_cenarios.append(novo_cenario)
 
         print(
-            f"✓ Generated {len(lista_de_cenarios)} scenarios with different routing weights"
+            f"✓ Generated {len(lista_de_cenarios)} scenario variants with different routing weights"
         )
 
         return lista_de_cenarios
