@@ -486,3 +486,166 @@ def create_comparison_data(
         "scenario1_name": scenario1_name,
         "scenario2_name": scenario2_name,
     }
+
+
+def create_multi_scenario_comparison_data(
+    scenarios: dict[str, object],
+    dataframes: dict[str, pd.DataFrame],
+    disaster_start: float,
+    disaster_end: float,
+) -> dict:
+    """Create comparison data structure for N scenarios.
+    
+    Args:
+        scenarios: dict mapping scenario_name -> scenario object
+        dataframes: dict mapping scenario_name -> dataframe
+        disaster_start: Disaster start time
+        disaster_end: Disaster end time
+    
+    Returns:
+        Dictionary with structure for multi-scenario table:
+        {
+            'scenario_names': list[str],
+            'performance_metrics': list[dict],
+            'config_parameters': list[dict]
+        }
+    """
+    scenario_names = list(scenarios.keys())
+    
+    # Calculate metrics for each scenario
+    performance_metrics = []
+    
+    # Overall Availability
+    availabilities = {}
+    total_requests = {}
+    blocked_requests = {}
+    
+    for name, df in dataframes.items():
+        total = len(df)
+        blocked = df['bloqueada'].sum()
+        availabilities[name] = 1 - (blocked / total) if total > 0 else 0
+        total_requests[name] = total
+        blocked_requests[name] = int(blocked)
+    
+    performance_metrics.append({
+        'name': 'Overall Availability',
+        'values': availabilities,
+        'counts': total_requests,
+        'format': 'percentage'
+    })
+    
+    # Overall Blocking Rate
+    blocking_rates = {name: 1 - availabilities[name] for name in scenario_names}
+    performance_metrics.append({
+        'name': 'Overall Blocking Rate',
+        'values': blocking_rates,
+        'counts': blocked_requests,
+        'format': 'percentage'
+    })
+    
+    # Migration Availability
+    migration_availabilities = {}
+    migration_totals = {}
+    migration_blocked = {}
+    
+    for name, df in dataframes.items():
+        migration_df = df[df['requisicao_de_migracao'] == True]
+        total = len(migration_df)
+        blocked = migration_df['bloqueada'].sum() if total > 0 else 0
+        migration_availabilities[name] = 1 - (blocked / total) if total > 0 else 0
+        migration_totals[name] = total
+        migration_blocked[name] = int(blocked)
+    
+    performance_metrics.append({
+        'name': 'Migration Availability',
+        'values': migration_availabilities,
+        'counts': migration_totals,
+        'format': 'percentage'
+    })
+    
+    # Migration Blocking Rate
+    migration_blocking = {name: 1 - migration_availabilities[name] for name in scenario_names}
+    performance_metrics.append({
+        'name': 'Migration Blocking Rate',
+        'values': migration_blocking,
+        'counts': migration_blocked,
+        'format': 'percentage'
+    })
+    
+    # Before Disaster Availability
+    before_availabilities = {}
+    before_totals = {}
+    before_blocked = {}
+    
+    for name, df in dataframes.items():
+        before_df = df[df['tempo_criacao'] < disaster_start]
+        total = len(before_df)
+        blocked = before_df['bloqueada'].sum() if total > 0 else 0
+        before_availabilities[name] = 1 - (blocked / total) if total > 0 else 0
+        before_totals[name] = total
+        before_blocked[name] = int(blocked)
+    
+    performance_metrics.append({
+        'name': 'Before Disaster Availability',
+        'values': before_availabilities,
+        'counts': before_totals,
+        'format': 'percentage'
+    })
+    
+    # During Disaster Availability
+    during_availabilities = {}
+    during_totals = {}
+    during_blocked = {}
+    
+    for name, df in dataframes.items():
+        during_df = df[(df['tempo_criacao'] >= disaster_start) & (df['tempo_criacao'] < disaster_end)]
+        total = len(during_df)
+        blocked = during_df['bloqueada'].sum() if total > 0 else 0
+        during_availabilities[name] = 1 - (blocked / total) if total > 0 else 0
+        during_totals[name] = total
+        during_blocked[name] = int(blocked)
+    
+    performance_metrics.append({
+        'name': 'During Disaster Availability',
+        'values': during_availabilities,
+        'counts': during_totals,
+        'format': 'percentage'
+    })
+    
+    # After Disaster Availability
+    after_availabilities = {}
+    after_totals = {}
+    after_blocked = {}
+    
+    for name, df in dataframes.items():
+        after_df = df[df['tempo_criacao'] >= disaster_end]
+        total = len(after_df)
+        blocked = after_df['bloqueada'].sum() if total > 0 else 0
+        after_availabilities[name] = 1 - (blocked / total) if total > 0 else 0
+        after_totals[name] = total
+        after_blocked[name] = int(blocked)
+    
+    performance_metrics.append({
+        'name': 'After Disaster Availability',
+        'values': after_availabilities,
+        'counts': after_totals,
+        'format': 'percentage'
+    })
+    
+    # Configuration Parameters
+    config_parameters = []
+    for name, scenario in scenarios.items():
+        config = {
+            'scenario': name,
+            'alpha': scenario.config.alpha,
+            'beta': scenario.config.beta,
+            'gamma': scenario.config.gamma,
+            'routing': scenario.config.routing_algorithm.__name__ if hasattr(scenario.config, 'routing_algorithm') else 'N/A'
+        }
+        config_parameters.append(config)
+    
+    return {
+        'scenario_names': scenario_names,
+        'performance_metrics': performance_metrics,
+        'config_parameters': config_parameters
+    }
