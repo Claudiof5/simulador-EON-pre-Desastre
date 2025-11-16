@@ -20,8 +20,8 @@ NUMERO_DE_CAMINHOS: int = 10
 SLOT_SIZE: float = 12.5
 
 
-__NUMERO_DE_EDGES_DA_TOPOLOGIA: int = 43
-__CAPACIDADE_MAXIMA_DA_REDE: int = NUMERO_DE_SLOTS * __NUMERO_DE_EDGES_DA_TOPOLOGIA
+_NUMERO_DE_EDGES_DA_TOPOLOGIA: int = 43
+_CAPACIDADE_MAXIMA_DA_REDE: int = NUMERO_DE_SLOTS * _NUMERO_DE_EDGES_DA_TOPOLOGIA
 
 # Traffic load calculation based on topology analysis
 # Analysis results: avg path length = 3 hops, avg modulation = 1.45x
@@ -37,13 +37,13 @@ _AVG_SLOTS_PER_LINK = _AVG_BANDWIDTH / (
 _AVG_SLOTS_PER_REQUEST = _AVG_SLOTS_PER_LINK * _AVG_PATH_LENGTH  # ~41.4 slot-hops
 
 # Target network utilization (0.6 = 60%, 0.7 = 70%, 0.8 = 80%)
-_TARGET_UTILIZATION = 0.5  # Conservative: expect 10-20% blocking rate
+_TARGET_UTILIZATION = 0.75  # Conservative: expect 10-20% blocking rate
 # _TARGET_UTILIZATION = 0.7  # Moderate: expect 20-30% blocking rate
 # _TARGET_UTILIZATION = 0.8  # High: expect 30-40% blocking rate
 
 # Calculate Erlangs (average concurrent requests)
 ERLANGS: float = (
-    __CAPACIDADE_MAXIMA_DA_REDE * _TARGET_UTILIZATION
+    _CAPACIDADE_MAXIMA_DA_REDE * _TARGET_UTILIZATION
 ) / _AVG_SLOTS_PER_REQUEST
 REQUISICOES_POR_SEGUNDO: float = ERLANGS / HOLDING_TIME
 

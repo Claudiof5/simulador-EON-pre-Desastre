@@ -198,15 +198,6 @@ class ScenarioGenerator:
         """
         if not lista_de_pesos:
             raise ValueError("lista_de_pesos must contain at least one weight tuple")
-
-        # Validate weight tuples
-        for i, (alpha, beta, gamma) in enumerate(lista_de_pesos):
-            if not (0 <= alpha <= 1 and 0 <= beta <= 1 and 0 <= gamma <= 1):
-                raise ValueError(
-                    f"Weight tuple {i} has invalid values: ({alpha}, {beta}, {gamma}). "
-                    f"All weights must be in [0, 1]"
-                )
-
         # Get base config from scenario or create default
         base_config = (
             base_scenario.config

@@ -117,7 +117,7 @@ class ISP:
 
         # Only start datacenter migration if using runtime mode (no pre-generated requests)
         # When lista_de_requisicoes is provided, migration requests are pre-generated
-        if simulador.lista_de_requisicoes is None:
+        if not simulador.lista_de_requisicoes:
             self.datacenter.iniciar_migracao(simulador, self)
 
         # After disaster ends, switch back to primary routing
