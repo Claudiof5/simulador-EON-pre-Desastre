@@ -20,7 +20,13 @@ from pathlib import Path
 from typing import Any
 
 # Import current defaults from settings.py
+# Import private calculation constants for accurate traffic modeling
 from simulador.config.settings import (
+    _AVG_BANDWIDTH,
+    _AVG_MODULATION,
+    _AVG_PATH_LENGTH,
+    _NUMERO_DE_EDGES_DA_TOPOLOGIA,
+    _TARGET_UTILIZATION,
     ALPHA,
     BANDWIDTH,
     BETA,
@@ -30,6 +36,7 @@ from simulador.config.settings import (
     GAMMA,
     HOLDING_TIME,
     INICIO_DESASTRE,
+    MIGRATION_NETWORK_FRACTION,
     NUMERO_DE_CAMINHOS,
     NUMERO_DE_REQUISICOES,
     NUMERO_DE_SLOTS,
@@ -143,12 +150,21 @@ class ScenarioConfig:
     datacenter_size_variance: float = VARIANCIA_TAMANHO_DATACENTER
     datacenter_throughput: float = THROUGHPUT
     datacenter_throughput_variance: float = VARIANCIA_THROUGHPUT
-    
-    # Network analysis constants (could be made configurable in future)
-    avg_path_length: float = 3.0  # Average hops per path
-    avg_modulation_factor: float = 1.45  # Average modulation efficiency
-    target_utilization: float = 0.5  # Target network utilization (0-1)
-    numero_edges_topologia: int = 43  # Number of edges in topology
+
+    # Network analysis constants (imported from settings.py for consistency)
+    avg_path_length: float = (
+        _AVG_PATH_LENGTH  # Average hops per path (from topology analysis)
+    )
+    avg_modulation_factor: float = (
+        _AVG_MODULATION  # Average modulation efficiency (from distance analysis)
+    )
+    avg_bandwidth: float = (
+        _AVG_BANDWIDTH  # Average bandwidth across all bandwidth options
+    )
+    target_utilization: float = _TARGET_UTILIZATION  # Target network utilization (0-1)
+    numero_edges_topologia: int = (
+        _NUMERO_DE_EDGES_DA_TOPOLOGIA  # Number of edges in topology
+    )
 
     def __post_init__(self):
         """Validate settings (immutable - no field modifications)."""
@@ -165,14 +181,6 @@ class ScenarioConfig:
             raise ValueError(
                 f"numero_de_requisicoes must be non-negative, got {self.numero_de_requisicoes}"
             )
-
-        # Validate routing weights
-        if not 0 <= self.alpha <= 1:
-            raise ValueError(f"alpha must be in [0,1], got {self.alpha}")
-        if not 0 <= self.beta <= 1:
-            raise ValueError(f"beta must be in [0,1], got {self.beta}")
-        if not 0 <= self.gamma <= 1:
-            raise ValueError(f"gamma must be in [0,1], got {self.gamma}")
 
         # Validate timing parameters
         if self.disaster_start < 0:
@@ -279,88 +287,86 @@ class ScenarioConfig:
             f"  Disaster: start={self.disaster_start}s, duration={self.disaster_duration}s\n"
             f"  Routing: α={self.alpha}, β={self.beta}, γ={self.gamma}"
         )
-    
+
     # Computed properties - derived from config parameters
-    
-    @property
-    def avg_bandwidth(self) -> float:
-        """Average bandwidth across all bandwidth options.
-        
-        Returns:
-            Average bandwidth in Gbps
-        """
-        return sum(self.bandwidth_options) / len(self.bandwidth_options)
-    
+
     @property
     def avg_slots_per_link(self) -> float:
         """Average slots consumed per link.
-        
+
         Returns:
             Average slots per link based on bandwidth and modulation
         """
         return self.avg_bandwidth / (self.avg_modulation_factor * self.slot_size)
-    
+
     @property
     def avg_slots_per_request(self) -> float:
         """Average total slots consumed per request (across all hops).
-        
+
         Returns:
             Average slot-hops per request
         """
         return self.avg_slots_per_link * self.avg_path_length
-    
+
     @property
     def network_capacity(self) -> float:
         """Total network capacity in slot-hops.
-        
+
         Returns:
             Total capacity = slots × edges
         """
         return self.numero_de_slots * self.numero_edges_topologia
-    
+
     @property
     def erlangs(self) -> float:
         """Traffic load in Erlangs (average concurrent requests).
-        
+
         Returns:
             Erlangs based on network capacity and target utilization
         """
-        return (self.network_capacity * self.target_utilization) / self.avg_slots_per_request
-    
+        return (
+            self.network_capacity * self.target_utilization
+        ) / self.avg_slots_per_request
+
     @property
     def requisicoes_por_segundo(self) -> float:
         """Request arrival rate in requests per second.
-        
+
         Returns:
             Request rate based on Erlangs and holding time
         """
         return self.erlangs / self.holding_time
-    
+
     @property
     def migration_network_fraction(self) -> float:
         """Fraction of network capacity allocated for migration traffic.
-        
+
         Returns:
             Fraction (0-1) of total network capacity for ALL migration traffic
+
+        Note:
+            This value is imported from MIGRATION_NETWORK_FRACTION in settings.py
+            and represents the portion of total network capacity reserved for
+            all datacenter migration operations combined.
         """
-        # Calculate from datacenter throughput if set, otherwise use default
-        # This is a simplified calculation - could be made more sophisticated
-        return 0.25  # Default: 25% of network for migration
-    
+        return MIGRATION_NETWORK_FRACTION
+
     @property
     def per_isp_migration_rate(self) -> float:
         """Migration request rate per ISP in requests/second.
-        
+
         Returns:
             Request rate for each ISP's migration
         """
-        total_migration_rate = self.requisicoes_por_segundo * self.migration_network_fraction
+        total_migration_rate = (
+            self.requisicoes_por_segundo * self.migration_network_fraction
+        )
         return total_migration_rate / self.numero_de_isps
-    
+
     @property
     def time_available_for_migration(self) -> float:
         """Time window available for migration before disaster.
-        
+
         Returns:
             Time in seconds between reaction start and disaster start
         """

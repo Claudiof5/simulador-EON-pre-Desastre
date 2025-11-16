@@ -262,3 +262,196 @@ def display_comparison_table(comparison_data: dict) -> None:
     """
     table_widget = create_comparison_table_widget(comparison_data)
     display(table_widget)
+
+
+# ============================================================================
+# Multi-Scenario Comparison Table
+# ============================================================================
+
+
+def _get_best_index(values: list, metric_name: str) -> int:
+    """Get index of best value based on metric type.
+    
+    Args:
+        values: List of metric values
+        metric_name: Name of the metric
+    
+    Returns:
+        Index of the best value
+    """
+    if 'Blocking' in metric_name or 'Block' in metric_name:
+        # Lower is better for blocking metrics
+        return values.index(min(values))
+    else:
+        # Higher is better for availability and other metrics
+        return values.index(max(values))
+
+
+def _format_value_multi(value: float, fmt: str, count: int = None) -> str:
+    """Format value for multi-scenario table.
+    
+    Args:
+        value: Value to format
+        fmt: Format type ('percentage', 'decimal', or other)
+        count: Optional request count to display
+    
+    Returns:
+        Formatted string
+    """
+    if fmt == "percentage":
+        base_str = f"{value * 100:.2f}%"
+        if count is not None:
+            base_str += f" <span style='font-size: 0.85em; color: #666;'>({count})</span>"
+        return base_str
+    elif fmt == "decimal":
+        return f"{value:.3f}"
+    else:
+        return f"{value:.4f}"
+
+
+def create_multi_scenario_table_widget(comparison_data: dict) -> widgets.HTML:
+    """Create comparison table for N scenarios.
+    
+    Args:
+        comparison_data: Dictionary with structure:
+            {
+                'scenario_names': list[str],
+                'performance_metrics': [
+                    {
+                        'name': str,
+                        'values': dict[str, float],  # scenario_name -> value
+                        'counts': dict[str, int],    # scenario_name -> count (optional)
+                        'format': str
+                    },
+                    ...
+                ],
+                'config_parameters': list[dict]
+            }
+    
+    Returns:
+        ipywidgets.HTML widget containing the styled multi-scenario table
+    """
+    scenario_names = comparison_data['scenario_names']
+    metrics = comparison_data['performance_metrics']
+    configs = comparison_data.get('config_parameters', [])
+    
+    # Build HTML table
+    html = """
+    <style>
+        .multi-comparison-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            font-size: 14px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+            margin: 20px 0;
+        }
+        .multi-comparison-table th {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            border: 1px solid #ddd;
+        }
+        .multi-comparison-table td {
+            padding: 12px 15px;
+            border: 1px solid #ddd;
+            background-color: white;
+        }
+        .multi-comparison-table tr:nth-child(even) {
+            background-color: #f8f9fa;
+        }
+        .multi-comparison-table tr:hover {
+            background-color: #e9ecef;
+        }
+        .metric-name {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+        .best-value {
+            font-weight: bold;
+            color: #28a745;
+            background-color: #d4edda !important;
+        }
+        .section-header {
+            background-color: #6c757d !important;
+            color: white !important;
+            font-weight: bold;
+            text-align: center;
+        }
+    </style>
+    <table class="multi-comparison-table">
+    """
+    
+    # Header row
+    html += "<thead><tr><th class='metric-name'>Metric</th>"
+    for name in scenario_names:
+        html += f"<th>{name}</th>"
+    html += "</tr></thead>"
+    
+    html += "<tbody>"
+    
+    # Performance Metrics Section
+    html += f"<tr><td colspan='{len(scenario_names) + 1}' class='section-header'>Performance Metrics</td></tr>"
+    
+    for metric in metrics:
+        html += "<tr><td class='metric-name'>" + metric['name'] + "</td>"
+        
+        # Get all values for this metric
+        values = [metric['values'].get(name, 0) for name in scenario_names]
+        best_idx = _get_best_index(values, metric['name'])
+        
+        for idx, name in enumerate(scenario_names):
+            value = metric['values'].get(name, 0)
+            count = metric.get('counts', {}).get(name)
+            formatted = _format_value_multi(value, metric['format'], count)
+            
+            css_class = 'best-value' if idx == best_idx else ''
+            html += f"<td class='{css_class}'>{formatted}</td>"
+        
+        html += "</tr>"
+    
+    # Configuration Parameters Section
+    if configs:
+        html += f"<tr><td colspan='{len(scenario_names) + 1}' class='section-header'>Configuration Parameters</td></tr>"
+        
+        # Extract unique parameter names
+        param_names = set()
+        for config in configs:
+            param_names.update(k for k in config.keys() if k != 'scenario')
+        
+        # Create a dict mapping scenario to its config
+        config_dict = {c['scenario']: c for c in configs}
+        
+        # Display each parameter as a row
+        for param in sorted(param_names):
+            html += f"<tr><td class='metric-name'>{param.replace('_', ' ').title()}</td>"
+            
+            for name in scenario_names:
+                config = config_dict.get(name, {})
+                value = config.get(param, 'N/A')
+                
+                # Format based on type
+                if isinstance(value, float):
+                    formatted = f"{value:.3f}"
+                else:
+                    formatted = str(value)
+                
+                html += f"<td>{formatted}</td>"
+            
+            html += "</tr>"
+    
+    html += "</tbody></table>"
+    
+    return widgets.HTML(value=html)
+
+
+def display_multi_scenario_table(comparison_data: dict) -> None:
+    """Display multi-scenario comparison table directly (convenience function).
+    
+    Args:
+        comparison_data: Dictionary from create_multi_scenario_comparison_data()
+    """
+    table_widget = create_multi_scenario_table_widget(comparison_data)
+    display(table_widget)

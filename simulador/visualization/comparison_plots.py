@@ -373,6 +373,42 @@ def visualize_isp_topology_comparison(
     return fig
 
 
+def visualize_isp_topology(
+    isp: ISP,
+    topology,
+    disaster_node: int | None,
+    scenario_name: str,
+    remove_disaster: bool = True,
+    figsize: tuple[int, int] = (12, 8),
+):
+    """Visualize single ISP topology.
+    
+    Args:
+        isp: ISP to visualize
+        topology: Network topology object
+        disaster_node: Node affected by disaster (or None if no disaster node)
+        scenario_name: Name of the scenario
+        remove_disaster: Whether to remove disaster node from visualization
+        figsize: Figure size tuple
+    
+    Returns:
+        matplotlib.figure.Figure: The created figure
+    """
+    fig, ax = plt.subplots(figsize=figsize)
+    
+    plot_single_isp_topology(
+        ax,
+        isp,
+        topology.topology,
+        disaster_node,
+        f"{scenario_name} - ISP {isp.isp_id}",
+        remove_disaster
+    )
+    
+    plt.tight_layout()
+    return fig
+
+
 def plot_single_isp_topology(
     ax: Axes,
     isp: ISP,
@@ -642,7 +678,7 @@ def _calculate_usage_at_time_points(
     """Calculate network usage at specific time points.
 
     Args:
-        dataframe: Filtered dataframe with slots_used, tempo_criacao, tempo_desalocacao
+        dataframe: Filtered dataframe with numero_de_slots, tempo_criacao, tempo_desalocacao
         time_points: Array of time points to calculate usage at
         total_slots: Total network capacity
 
@@ -656,7 +692,7 @@ def _calculate_usage_at_time_points(
         active_mask = (dataframe["tempo_criacao"] <= t) & (
             dataframe["tempo_desalocacao"] > t
         )
-        total_slots_used = dataframe.loc[active_mask, "slots_used"].sum()
+        total_slots_used = dataframe.loc[active_mask, "numero_de_slots"].sum()
         usage[idx] = total_slots_used / total_slots
 
     return usage
@@ -686,3 +722,264 @@ def _moving_average(
             smoothed[idx] = usage[mask].mean()
 
     return smoothed
+
+
+# ============================================================================
+# Multi-Scenario Comparison Functions
+# ============================================================================
+
+
+def _get_scenario_colors(n: int) -> list:
+    """Generate N visually distinct colors using matplotlib colormap.
+    
+    Args:
+        n: Number of colors needed
+    
+    Returns:
+        List of color values
+    """
+    import matplotlib.cm as cm
+    
+    if n <= 10:
+        return [cm.tab10(i) for i in range(n)]
+    else:
+        return [cm.tab20(i % 20) for i in range(n)]
+
+
+def _add_disaster_shading(ax: Axes, start: float, end: float) -> None:
+    """Add disaster period shading to plot.
+    
+    Args:
+        ax: Matplotlib axis
+        start: Disaster start time
+        end: Disaster end time
+    """
+    ax.axvspan(start, end, alpha=0.2, color='red', label='Disaster Period')
+
+
+def _add_migration_markers(ax: Axes, migration_times: dict[int, float]) -> None:
+    """Add ISP migration start time markers to plot.
+    
+    Args:
+        ax: Matplotlib axis
+        migration_times: Dict mapping ISP ID to migration start time
+    """
+    for isp_id, time in migration_times.items():
+        ax.axvline(time, color='orange', linestyle='--', alpha=0.5, linewidth=1)
+
+
+def plot_blocking_probability_multi(
+    ax: Axes,
+    dataframes: dict[str, pd.DataFrame],
+    bucket_size: float,
+    disaster_start: float,
+    disaster_end: float,
+    migration_times: dict[int, float],
+    show_migration: bool,
+    show_disaster: bool,
+) -> None:
+    """Plot blocking probability for multiple scenarios.
+    
+    Args:
+        ax: Matplotlib axis
+        dataframes: Dict mapping scenario name to dataframe
+        bucket_size: Time bucket size
+        disaster_start: Disaster start time
+        disaster_end: Disaster end time
+        migration_times: Dict mapping ISP ID to migration start time
+        show_migration: Whether to show migration markers
+        show_disaster: Whether to show disaster period
+    """
+    colors = _get_scenario_colors(len(dataframes))
+    
+    for idx, (name, df) in enumerate(dataframes.items()):
+        times, rates = calculate_blocking_probability_over_time(df, bucket_size)
+        ax.plot(times, rates, label=name, color=colors[idx], linewidth=2, alpha=0.8)
+    
+    # Add disaster/migration markers
+    if show_disaster:
+        _add_disaster_shading(ax, disaster_start, disaster_end)
+    
+    if show_migration and migration_times:
+        _add_migration_markers(ax, migration_times)
+        # Add single legend entry for migration
+        ax.plot([], [], color='orange', linestyle='--', alpha=0.5, 
+                label='ISP Migration Starts', linewidth=1)
+    
+    ax.legend(loc='best', fontsize=10, framealpha=0.9)
+    ax.set_xlabel('Time', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Blocking Probability', fontsize=12, fontweight='bold')
+    ax.set_title('Blocking Probability Over Time - Multi-Scenario Comparison', 
+                 fontsize=14, fontweight='bold')
+    ax.grid(alpha=0.3)
+
+
+def plot_availability_multi(
+    ax: Axes,
+    dataframes: dict[str, pd.DataFrame],
+    bucket_size: float,
+    disaster_start: float,
+    disaster_end: float,
+    migration_times: dict[int, float],
+    show_migration: bool,
+    show_disaster: bool,
+) -> None:
+    """Plot availability for multiple scenarios.
+    
+    Args:
+        ax: Matplotlib axis
+        dataframes: Dict mapping scenario name to dataframe
+        bucket_size: Time bucket size
+        disaster_start: Disaster start time
+        disaster_end: Disaster end time
+        migration_times: Dict mapping ISP ID to migration start time
+        show_migration: Whether to show migration markers
+        show_disaster: Whether to show disaster period
+    """
+    colors = _get_scenario_colors(len(dataframes))
+    
+    for idx, (name, df) in enumerate(dataframes.items()):
+        times, rates = calculate_blocking_probability_over_time(df, bucket_size)
+        availability = 1 - rates  # Convert blocking to availability
+        ax.plot(times, availability, label=name, color=colors[idx], linewidth=2, alpha=0.8)
+    
+    # Add disaster/migration markers
+    if show_disaster:
+        _add_disaster_shading(ax, disaster_start, disaster_end)
+    
+    if show_migration and migration_times:
+        _add_migration_markers(ax, migration_times)
+        ax.plot([], [], color='orange', linestyle='--', alpha=0.5, 
+                label='ISP Migration Starts', linewidth=1)
+    
+    ax.legend(loc='best', fontsize=10, framealpha=0.9)
+    ax.set_xlabel('Time', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Availability', fontsize=12, fontweight='bold')
+    ax.set_title('Availability Over Time - Multi-Scenario Comparison', 
+                 fontsize=14, fontweight='bold')
+    ax.grid(alpha=0.3)
+
+
+def plot_link_utilization_multi(
+    ax: Axes,
+    dataframes: dict[str, pd.DataFrame],
+    top_n: int = 15,
+) -> None:
+    """Plot link utilization aggregated across multiple scenarios.
+    
+    Args:
+        ax: Matplotlib axis
+        dataframes: Dict mapping scenario name to dataframe
+        top_n: Number of top utilized links to show
+    """
+    import ast
+    from collections import Counter
+    
+    # Aggregate link usage across all scenarios
+    link_usage = Counter()
+    
+    for name, df in dataframes.items():
+        for _, row in df.iterrows():
+            if pd.notna(row["caminho"]) and row["caminho"] != "" and not row["bloqueada"]:
+                try:
+                    path = ast.literal_eval(row["caminho"])
+                    # Count each link in the path
+                    for i in range(len(path) - 1):
+                        link = tuple(sorted([path[i], path[i + 1]]))
+                        link_usage[link] += 1
+                except Exception:
+                    continue
+    
+    if not link_usage:
+        ax.text(0.5, 0.5, 'No link utilization data available', 
+                ha='center', va='center', transform=ax.transAxes, fontsize=12)
+        return
+    
+    # Get top N links
+    top_links = link_usage.most_common(top_n)
+    links = [f"{u}-{v}" for (u, v), _ in top_links]
+    counts = [count for _, count in top_links]
+    
+    colors = _get_scenario_colors(len(links))
+    bars = ax.barh(links, counts, color=colors, alpha=0.7, edgecolor='black')
+    
+    ax.set_xlabel('Number of Requests Using Link', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Link', fontsize=12, fontweight='bold')
+    ax.set_title(f'Top {top_n} Most Utilized Links - Aggregated Across All Scenarios', 
+                 fontsize=14, fontweight='bold')
+    ax.grid(axis='x', alpha=0.3)
+    
+    # Add value labels on bars
+    for bar in bars:
+        width = bar.get_width()
+        ax.text(width, bar.get_y() + bar.get_height()/2, 
+                f'{int(width)}', 
+                ha='left', va='center', fontsize=9, fontweight='bold')
+
+
+def plot_network_usage_multi(
+    ax: Axes,
+    dataframes: dict[str, pd.DataFrame],
+    topology,
+    disaster_start: float,
+    disaster_end: float,
+    migration_times: dict[int, float],
+    show_migration: bool,
+    show_disaster: bool,
+    window_size: float = 10.0,
+) -> None:
+    """Plot network usage for multiple scenarios.
+    
+    Args:
+        ax: Matplotlib axis
+        dataframes: Dict mapping scenario name to dataframe
+        topology: Network topology object
+        disaster_start: Disaster start time
+        disaster_end: Disaster end time
+        migration_times: Dict mapping ISP ID to migration start time
+        show_migration: Whether to show migration markers
+        show_disaster: Whether to show disaster period
+        window_size: Window size for moving average smoothing
+    """
+    from simulador.config.settings import NUMERO_DE_SLOTS
+    
+    colors = _get_scenario_colors(len(dataframes))
+    
+    # Calculate total slots in network
+    total_links = topology.topology.number_of_edges()
+    total_slots = total_links * NUMERO_DE_SLOTS
+    
+    for idx, (name, df) in enumerate(dataframes.items()):
+        if len(df) == 0:
+            continue
+        
+        # Get time range
+        max_time = df["tempo_desalocacao"].max()
+        time_points = np.linspace(0, max_time, 500)
+        
+        # Calculate usage
+        usage = _calculate_usage_at_time_points(df, time_points, total_slots)
+        
+        # Apply moving average for smoothing
+        window_points = np.linspace(0, max_time, 200)
+        smoothed_usage = _moving_average(usage, window_points, time_points)
+        
+        ax.plot(window_points, smoothed_usage, label=name, 
+                color=colors[idx], linewidth=2, alpha=0.8)
+    
+    # Add disaster/migration markers
+    if show_disaster:
+        _add_disaster_shading(ax, disaster_start, disaster_end)
+    
+    if show_migration and migration_times:
+        _add_migration_markers(ax, migration_times)
+        ax.plot([], [], color='orange', linestyle='--', alpha=0.5, 
+                label='ISP Migration Starts', linewidth=1)
+    
+    ax.legend(loc='best', fontsize=10, framealpha=0.9)
+    ax.set_xlabel('Time', fontsize=12, fontweight='bold')
+    ax.set_ylabel('Network Usage (fraction)', fontsize=12, fontweight='bold')
+    ax.set_title('Network Usage Over Time - Multi-Scenario Comparison', 
+                 fontsize=14, fontweight='bold')
+    ax.set_ylim([0, 1])
+    ax.grid(alpha=0.3)
