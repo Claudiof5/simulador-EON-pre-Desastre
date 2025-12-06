@@ -166,6 +166,9 @@ class ScenarioGenerator:
                     config=config,
                 )
 
+            if disaster_node is not None:
+                novo_cenario.initialize_cooperation(disaster_node, config)
+
             lista_de_cenarios.append(novo_cenario)
 
         return tuple(lista_de_cenarios)
@@ -252,6 +255,9 @@ class ScenarioGenerator:
                         lista_de_isps=novo_cenario.lista_de_isps,
                         config=variant_config,  # ← New config with different weights!
                     )
+
+                # Initialize cooperation coordinator for this scenario variant
+                novo_cenario.initialize_cooperation(disaster_node, variant_config)
 
             lista_de_cenarios.append(novo_cenario)
 

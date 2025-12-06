@@ -19,7 +19,18 @@ if TYPE_CHECKING:
 def calculate_isp_usage_weights(
     isp_list: list[ISP], alfa: float = 0.2
 ) -> dict[int, dict[tuple[int, int], dict[str, float]]]:
-    """Calculate ISP usage weights based on shortest path frequency."""
+    """Calculate ISP usage weights based on shortest path frequency.
+    
+    When there's only one ISP (no cooperation yet), returns zero weights
+    since there's no link sharing to consider.
+    """
+    weights_per_isp = {isp.isp_id: {} for isp in isp_list}
+    
+    # Special case: single ISP (no cooperation/sharing)
+    # ISP usage weight measures link sharing across ISPs, so with only 1 ISP, weight = 0
+    if len(isp_list) <= 1:
+        return weights_per_isp
+    
     link_ocurrances_in_all_isps = defaultdict(int)
     for isp in isp_list:
         for edge in isp.edges:
@@ -27,7 +38,6 @@ def calculate_isp_usage_weights(
             reverse_edge = (edge[1], edge[0])
             link_ocurrances_in_all_isps[reverse_edge] += 1
 
-    weights_per_isp = {isp.isp_id: {} for isp in isp_list}
     for isp in isp_list:
         for edge in isp.edges:
             normalized = (

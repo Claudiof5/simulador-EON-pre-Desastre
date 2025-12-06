@@ -79,6 +79,11 @@ class ISP:
             int, dict[int, list[dict]]
         ] = {}
 
+        # Cooperation tracking
+        self.is_cooperating: bool = False
+        self.cooperation_start_time: float | None = None
+        self.cooperation_coordinator = None  # Set externally by scenario
+
     def define_datacenter(
         self,
         disaster: Disaster,
@@ -111,8 +116,18 @@ class ISP:
         if self.datacenter is None:
             return
 
-        # Wait until reaction time, then switch to disaster routing
+        # Wait until reaction time
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
+
+        # Mark as cooperating and trigger weight recalculation
+        self.is_cooperating = True
+        self.cooperation_start_time = simulador.env.now
+        if self.cooperation_coordinator:
+            self.cooperation_coordinator.register_cooperation(
+                self.isp_id, simulador.env.now
+            )
+
+        # Switch to disaster routing
         self.roteamento_atual = self.roteamento_desastre
 
         # Only start datacenter migration if using runtime mode (no pre-generated requests)
@@ -141,6 +156,134 @@ class ISP:
             roteamento: New routing method for disaster scenarios
         """
         self.roteamento_desastre = roteamento
+
+    def update_cooperative_weights(
+        self,
+        cooperating_isps: list[ISP],
+        topology: nx.Graph,
+        node_desastre: int,
+        config: ScenarioConfig,
+    ) -> None:
+        """Recalculate weighted paths using only cooperating ISPs.
+
+        This method is called when the cooperation network changes (a new ISP joins).
+        It recalculates weights using only data from cooperating ISPs and updates
+        the weighted disaster-aware paths.
+
+        Args:
+            cooperating_isps: List of ISPs currently cooperating (including self)
+            topology: Network topology graph
+            node_desastre: Node affected by disaster
+            config: Scenario configuration with weight parameters (α, β, γ)
+        """
+        from simulador.routing import weights
+
+        # Calculate weights using only cooperating ISPs
+        # α: ISP usage - count links only from cooperating ISPs
+        isp_usage_weights = weights.calculate_isp_usage_weights(
+            cooperating_isps, config.alpha
+        )
+
+        # β: Migration - consider only cooperating ISPs' migrations
+        migration_weights = weights.calculate_migration_weights(
+            cooperating_isps, config.beta
+        )
+
+        # γ: Criticality - calculate bridges only from cooperating ISPs
+        link_criticality_weights = weights.calculate_link_criticality(
+            topology, cooperating_isps, node_desastre, config.gamma
+        )
+
+        # Combine weights
+        combined_weights = weights.calculate_weights_by_isps(
+            cooperating_isps,
+            isp_usage_weights,
+            migration_weights,
+            link_criticality_weights,
+        )
+
+        # Extract weights for this ISP and recreate weighted graphs
+        weights_by_link_by_isp = {
+            isp_id: {link: data["total"] for link, data in links.items()}
+            for isp_id, links in combined_weights.items()
+        }
+
+        # Recreate weighted subgraphs
+        isp_subgraph_full = self._criar_subgrafo_isp(topology)
+        isp_subgraph_disaster_aware = isp_subgraph_full.copy()
+        if node_desastre in self.nodes:
+            isp_subgraph_disaster_aware.remove_node(node_desastre)
+
+        weighted_isp_subgraph_full = weights.create_weighted_graph(
+            isp_subgraph_full, self.isp_id, weights_by_link_by_isp
+        )
+        weighted_isp_subgraph_disaster_aware = weights.create_weighted_graph(
+            isp_subgraph_disaster_aware, self.isp_id, weights_by_link_by_isp
+        )
+
+        # Recompute all weighted paths with new weights
+        self._recompute_weighted_paths(
+            weighted_isp_subgraph_full,
+            weighted_isp_subgraph_disaster_aware,
+            node_desastre,
+            topology,
+        )
+
+    def _recompute_weighted_paths(
+        self,
+        weighted_isp_subgraph_full: nx.Graph,
+        weighted_isp_subgraph_disaster_aware: nx.Graph,
+        node_desastre: int,
+        topology: nx.Graph,
+        numero_de_caminhos: int = 10,
+    ) -> None:
+        """Recompute weighted disaster paths without changing unweighted paths.
+
+        This helper method updates only the weighted disaster-aware paths, leaving
+        the unweighted paths intact. This is called during cooperation updates.
+
+        Args:
+            weighted_isp_subgraph_full: Weighted graph including disaster node
+            weighted_isp_subgraph_disaster_aware: Weighted graph avoiding disaster node
+            node_desastre: Node affected by disaster
+            topology: Network topology graph
+            numero_de_caminhos: Number of paths to compute per node pair
+        """
+        for src_node in self.nodes:
+            for dst_node in self.nodes:
+                if src_node == dst_node:
+                    continue
+
+                # Determine which graph to use based on traffic type
+                is_disaster_traffic = node_desastre in (src_node, dst_node)
+                weighted_subgraph_to_use = (
+                    weighted_isp_subgraph_full
+                    if is_disaster_traffic
+                    else weighted_isp_subgraph_disaster_aware
+                )
+
+                # Recompute weighted paths
+                weighted_caminhos = self._k_shortest_paths_isp(
+                    weighted_subgraph_to_use, src_node, dst_node, numero_de_caminhos
+                )
+
+                # Update weighted paths while keeping unweighted paths intact
+                informacoes_caminhos_weighted = []
+                for caminho in weighted_caminhos:
+                    distancia = self._calcular_distancia_caminho(topology, caminho)
+                    fator_modulacao = self._calcular_fator_modulacao(distancia)
+                    informacoes_caminhos_weighted.append(
+                        {
+                            "caminho": caminho,
+                            "distancia": distancia,
+                            "fator_de_modulacao": fator_modulacao,
+                        }
+                    )
+
+                # Update only weighted paths
+                self.weighted_caminhos_internos_isp_durante_desastre[src_node][
+                    dst_node
+                ] = informacoes_caminhos_weighted
 
     def computar_caminhos_internos(
         self, topology: nx.Graph, numero_de_caminhos: int = 3
@@ -239,25 +382,26 @@ class ISP:
                 isp_subgraph_disaster_aware, self.isp_id, weights_by_link_by_isp
             )
         elif lista_de_isps is not None:
-            # Calculate ALL weights if list of ISPs is provided, using config values
-            # 1. ISP usage weights (alpha)
-            isp_usage_weights = weights.calculate_isp_usage_weights(
-                lista_de_isps, config.alpha
-            )
+            # Initial weights: Use ONLY own ISP data before cooperation
+            # This represents the isolated view each ISP has before sharing information
 
-            # 2. Migration weights (beta)
-            migration_weights = weights.calculate_migration_weights(
-                lista_de_isps, config.beta
-            )
+            # 1. ISP usage weights (alpha) - initially empty (α = 0, no sharing yet)
+            # Each ISP only knows about its own links, not how many other ISPs use them
+            isp_usage_weights = {self.isp_id: {}}  # Empty, α not used yet
 
-            # 3. Link criticality weights (gamma)
+            # 2. Migration weights (beta) - only own migration traffic
+            # ISP only knows about its own datacenter migration paths
+            migration_weights = weights.calculate_migration_weights([self], config.beta)
+
+            # 3. Link criticality weights (gamma) - only own bridges
+            # ISP only knows about bridges connecting its own network segments
             link_criticality_weights = weights.calculate_link_criticality(
-                topology, lista_de_isps, node_desastre, config.gamma
+                topology, [self], node_desastre, config.gamma
             )
 
-            # 4. Combine all weights
+            # 4. Combine weights for own ISP only
             combined_weights = weights.calculate_weights_by_isps(
-                lista_de_isps,
+                [self],
                 isp_usage_weights,
                 migration_weights,
                 link_criticality_weights,
