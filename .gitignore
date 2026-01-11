@@ -3,3 +3,5 @@ simulador/simulador/_out/
 *.csv
 *.pkl
 gittoken
+.vscode/*
+.python-version

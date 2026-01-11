@@ -1,23 +1,30 @@
 {
-    "git.ignoreLimitWarning": true,
-    "editor.formatOnSave": true,
-    
-    // Use Ruff instead of Black + Pylint
-    "[python]": {
-        "editor.defaultFormatter": "charliermarsh.ruff",
-        "editor.codeActionsOnSave": {
-            "source.organizeImports": "always",
-            "source.fixAll.ruff": "always"
-        }
-    },
-    
-    // Pylance (language server) settings
-    "python.analysis.typeCheckingMode": "basic",
-    "python.analysis.autoImportCompletions": true,
-    "python.analysis.inlayHints.variableTypes": true,
-    "python.analysis.inlayHints.functionReturnTypes": true,
-    
-    // Disable old linters to avoid conflicts  
-    "python.linting.enabled": false,
-    "python.formatting.provider": "none",
+  "git.ignoreLimitWarning": true,
+  "editor.formatOnSave": true,
+
+  // Use Ruff instead of Black + Pylint
+  "[python]": {
+    "editor.defaultFormatter": "charliermarsh.ruff",
+    "editor.codeActionsOnSave": {
+      "source.organizeImports": "always",
+      "source.fixAll.ruff": "always"
+    }
+  },
+
+  // Pylance (language server) settings
+  "python.analysis.typeCheckingMode": "basic",
+  "python.analysis.autoImportCompletions": true,
+  "python.analysis.inlayHints.variableTypes": true,
+  "python.analysis.inlayHints.functionReturnTypes": true,
+
+  // Disable old linters to avoid conflicts
+  "python.linting.enabled": false,
+  "python.formatting.provider": "none",
+  "cursorpyright.analysis.autoImportCompletions": true,
+  "cursorpyright.analysis.inlayHints.functionReturnTypes": true,
+  "cursorpyright.analysis.inlayHints.variableTypes": true,
+  "cursorpyright.analysis.typeCheckingMode": "basic",
+
+  // Poetry virtual environment
+  "python.defaultInterpreterPath": "/Users/claudiodefariadantas/Library/Caches/pypoetry/virtualenvs/simulador-eon-pre-desastre-xuIB9mPi-py3.12/bin/python"
 }
