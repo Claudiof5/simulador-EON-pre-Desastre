@@ -5,3 +5,13 @@ simulador/simulador/_out/
 gittoken
 .vscode/*
 .python-version
+overleaf/out/
+overleaf/*.aux
+overleaf/*.log
+overleaf/*.toc
+overleaf/*.out
+overleaf/*.fls
+overleaf/*.fdb_latexmk
+overleaf/*.synctex.gz
+overleaf/*.pdf
+overleaf/.DS_Store

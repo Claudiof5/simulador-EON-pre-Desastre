@@ -1,0 +1,414 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[brazil]{babel}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\geometry{margin=2.4cm}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+
+\theoremstyle{definition}
+\newtheorem{problema}{Problema}
+\newtheorem{definicao}{Definição}
+
+\title{Formalização do problema:\\
+migração multi-ISP em EON na janela de alerta}
+\author{Cláudio de Faria Dantas}
+\date{}
+
+\begin{document}
+\maketitle
+
+\begin{abstract}
+Uma rede óptica elástica é compartilhada por provedores que \emph{agem de maneira independente}: cada um só vê o próprio subgrafo, descobre o desastre no seu instante e aloca espectro sem um controlador central.
+Um subconjunto de nós $V_d$ na interseção desses subgrafos --- crítico segundo o corte mínimo mais balanceado após sua remoção --- falhará em $t_d$.
+Antes disso, cada provedor deve retirar dados críticos desses nós, competindo pelo mesmo espectro contíguo.
+Provedores \emph{podem} coordenar informação; uma métrica de sucesso é a fração migrada do conjunto cooperante superar a do conjunto que permanece isolado.
+\end{abstract}
+
+\tableofcontents
+\newpage
+
+%----------------------------------------------------------------------
+\section{Posicionamento}
+%----------------------------------------------------------------------
+
+O problema ocorre na fase de \emph{preparação}: o alerta já chegou, a falha ainda não.
+Não é restauração pós-desastre (zona espacial $D(C_d,R_d)$) nem coordenação pós-falha entre provedor de datacenter e operadora via mediador.
+Os provedores compartilham a mesma topologia óptica: cada um opera só o próprio overlay e aloca espectro em janelas contíguas, iguais ao longo do caminho.
+
+O ponto de partida é a \emph{independência de ação}.
+Não há um alocador global nem um mediador que imponha caminhos:
+cada $i\in\mathcal{I}$ decide só com o que enxerga em $G_i$.
+Coordenar, se ocorrer, é compartilhar informação; a alocação continua local.
+Uma métrica de sucesso do problema é precisamente essa: o conjunto que coordena deve migrar mais do que o que não coordena.
+
+\textbf{Disponibilidade} aqui significa
+\begin{equation}
+  A \;=\; 1 - B,
+  \qquad
+  B \;=\; \frac{\text{requisições bloqueadas}}{\text{requisições tentadas}},
+\end{equation}
+e não disponibilidade clássica dois-terminais.
+
+%----------------------------------------------------------------------
+\section{Enunciado}
+%----------------------------------------------------------------------
+
+\begin{problema}[Migração na janela de alerta]
+\label{prob:principal}
+\hfill
+\begin{description}[leftmargin=1.6cm,style=nextline]
+  \item[\textbf{Dado}]
+    um grafo físico $G=(V,E)$ com $F$ slots por aresta;
+    um conjunto $\mathcal{I}=\{1,\dots,I\}$ de provedores, cada um com subgrafo $G_i=(V_i,E_i)$;
+    um subconjunto de nós de desastre $V_d\subseteq\bigcap_{i\in\mathcal{I}} V_i$, $V_d\neq\emptyset$, que falha em $t_d$, levando as arestas incidentes;
+    para cada $i$, um volume $D_i$ em $s_i\in V_d$, um destino $d_i\in V_i\setminus V_d$ e um instante de descoberta $\tau_i<t_d$;
+    um processo de tráfego de fundo em cada $G_i$;
+    cada conexão usa uma janela contígua de slots, a mesma em todo o caminho, com o número de slots dependente da distância;
+    sem preempção e sem espectro reservado.
+
+  \item[\textbf{Encontrar}]
+    para cada $i$, de forma \emph{independente}, a partir de $\tau_i$, alocações de caminho e de janela espectral em $G_i$ para
+    (i)~as requisições de migração $s_i\to d_i$ e
+    (ii)~o tráfego de fundo que ainda usa $G_i$;
+    e, opcionalmente, um subconjunto cooperante $K\subseteq\mathcal{I}$ que compartilha informação (não alocação).
+
+  \item[\textbf{Tal que}]
+    se maximize a fração migrada até a falha dos cooperantes entre os $I$ provedores.
+    $D_i$ é o volume a retirar do provedor $i$;
+    $M_i(t_d)$ é o quanto de $D_i$ já foi alocado com sucesso até $t_d$;
+    \begin{equation}
+      \eta_i \;=\; \frac{M_i(t_d)}{D_i}
+      \quad\text{(fração migrada de $i$)},
+      \qquad
+      \eta(K)
+      \;=\;
+      \frac{1}{|K|}\sum_{i\in K}\eta_i
+      \quad\text{(média dos cooperantes)}.
+    \end{equation}
+    Para um conjunto $S\subseteq\mathcal{I}$ não vazio, $\eta(S)=\frac{1}{|S|}\sum_{i\in S}\eta_i$.
+    O objetivo primário é maximizar $\eta(K)$.
+    Seja $B$ a fração de requisições bloqueadas (fundo e migração) e $A=1-B$;
+    deve-se conter $B$ (equivalentemente, maximizar $A$).
+    Os cooperantes devem superar os isolados:
+    \begin{equation}
+      \eta(K) \;>\; \eta(\mathcal{I}\setminus K)
+      \qquad\text{quando }K\neq\emptyset\text{ e }K\neq\mathcal{I}.
+    \end{equation}
+
+  \item[\textbf{Sob}]
+    ação independente: não existe alocador central; cada $i$ escolhe caminhos e slots só em $G_i$;
+    descoberta independente: $i$ só passa a agir em $\tau_i$, sem sincronizar $\tau_i$ com os demais;
+    visão local por omissão: sem cooperação, $i$ conhece apenas $G_i$ e a própria migração $(s_i,d_i,D_i)$;
+    cooperação, se houver, é troca de informação entre membros de $K$, não fusão dos overlays nem alocação conjunta de espectro;
+    espectro compartilhado: o vetor de ocupação de $e\in E$ é único para todos os $G_j$ que contêm $e$;
+    conflito de duas naturezas nos nós de $V_d$: a migração \emph{parte} de $s_i\in V_d$, logo precisa de $G_i$ com esses nós; o tráfego que deve sobreviver após $t_d$ \emph{não} pode depender de $V_d$.
+\end{description}
+\end{problema}
+
+%----------------------------------------------------------------------
+\section{Grafo físico e espectro}
+%----------------------------------------------------------------------
+
+A topologia é um grafo não direcionado ponderado
+\begin{equation}
+  G=(V,E),\qquad
+  \ell:E\to\mathbb{R}_{>0},
+\end{equation}
+onde $\ell(e)$ é o comprimento físico da aresta.
+A instância de referência é o backbone EUA, $|V|=24$, $|E|=43$.
+
+Cada aresta $e=\{u,v\}$ carrega um vetor de slots
+\begin{equation}
+  \mathbf{s}_e(t)\in\{0,1\}^{F},
+  \qquad
+  s_e^{(f)}(t)=1
+  \;\Leftrightarrow\;
+  \text{o slot $f$ está ocupado em $t$}.
+\end{equation}
+Em $t\ge t_d$, os nós de $V_d$ e as arestas incidentes a $V_d$ estão falhos: nenhum slot nessas arestas é utilizável.
+
+\begin{definicao}[Janela espectral]
+Uma alocação para uma requisição $r$ de banda $b_r$ é um par $(\,p,\,[f_{\mathrm{ini}},f_{\mathrm{fim}}]\,)$,
+com $p=(v_0,\dots,v_h)$ caminho simples e
+\begin{equation}
+  n(r,p)
+  \;=\;
+  f_{\mathrm{fim}}-f_{\mathrm{ini}}+1
+  \;=\;
+  \left\lceil
+    \frac{b_r}{m(\ell(p))\,\Delta}
+  \right\rceil
+\end{equation}
+slots \emph{contíguos} e \emph{iguais} em toda aresta de $p$ (continuidade espectral).
+Aqui $\ell(p)=\sum_{e\in p}\ell(e)$, $\Delta$ é a largura do slot, e
+\begin{equation}
+  m(\delta)
+  \;=\;
+  \begin{cases}
+    4 & \text{se }\delta\le 500,\\
+    3 & \text{se }\delta\le 1000,\\
+    2 & \text{se }\delta\le 2000,\\
+    1 & \text{caso contrário.}
+  \end{cases}
+\end{equation}
+\end{definicao}
+
+A requisição $r$ é aceita no instante $t$ se existe tal par com
+\begin{equation}
+  \forall e\in p,\;
+  \forall f\in[f_{\mathrm{ini}},f_{\mathrm{fim}}]:
+  \quad
+  s_e^{(f)}(t)=0
+  \;\wedge\;
+  e\text{ não falha em $t$}.
+\end{equation}
+Caso contrário, $r$ é bloqueada.
+Não há fila: o bloqueio é irrevogável.
+Não há preempção: a janela só libera ao fim do holding time ou se alguma aresta de $p$ falha.
+
+%----------------------------------------------------------------------
+\section{Provedores como subgrafos}
+%----------------------------------------------------------------------
+
+Cada provedor $i\in\mathcal{I}$ é um subgrafo
+\begin{equation}
+  G_i=(V_i,E_i),
+  \qquad
+  V_i\subseteq V,\quad
+  E_i\subseteq E\cap\binom{V_i}{2}.
+\end{equation}
+Toda requisição de $i$ só pode usar nós e arestas de $G_i$.
+Os overlays se sobrepõem, mas as decisões não: $i$ não aloca no lugar de $j$.
+
+As instâncias consideradas satisfazem
+\begin{equation}
+  \bigcap_{i\in\mathcal{I}} V_i \;\neq\; \emptyset
+  \qquad\text{e}\qquad
+  \bigcup_{i\in\mathcal{I}} V_i \;=\; V.
+\end{equation}
+A interseção não vazia é o conjunto de candidatos a $V_d$ visível por todos; a união cobre a topologia.
+
+\begin{definicao}[Sobreposição de aresta]
+O número de provedores que usam $e$ é
+\begin{equation}
+  \sigma(e)
+  \;=\;
+  \bigl|\{i\in\mathcal{I}: e\in E_i\}\bigr|.
+\end{equation}
+\end{definicao}
+
+O espectro $\mathbf{s}_e$ é o mesmo para todos os $i$ com $e\in E_i$.
+Se $\sigma(e)>1$, os provedores competem por slots, não por encaminhamento de pacotes.
+
+%----------------------------------------------------------------------
+\section{Os nós de desastre e a análise de arestas}
+%----------------------------------------------------------------------
+
+O desastre é a falha de um subconjunto $V_d\subseteq V$ e das arestas incidentes a esses nós --- não um disco geográfico.
+O caso $|V_d|=1$ é uma instância particular.
+
+\subsection{Onde $V_d$ pode estar}
+
+Como cada $G_i$ só roteia em $V_i$, para que todos os provedores vejam todos os nós falhos e tenham dados em risco no mesmo conjunto,
+\begin{equation}
+  V_d \;\subseteq\; \bigcap_{i\in\mathcal{I}} V_i,
+  \qquad
+  V_d\neq\emptyset.
+\end{equation}
+
+\subsection{Qual conjunto é o mais crítico}
+
+Para cada candidato $W\subseteq V$ não vazio, forme $G^{-W}=G-W$.
+Para todo par $(s,t)$ ainda conectado, o corte mínimo de capacidade unitária é
+\begin{equation}
+  \lambda_{s,t}(G^{-W})
+  \;=\;
+  \min\bigl\{\,|\delta(S)| : s\in S,\; t\notin S,\; S\subseteq V\setminus W\,\bigr\}.
+\end{equation}
+Entre esses cortes, retém-se o de menor $\lambda$ e, em empate, o de partições mais equilibradas
+\begin{equation}
+  \Delta(S)
+  \;=\;
+  \bigl\lvert |S| - |(V\setminus W)\setminus S| \bigr\rvert.
+\end{equation}
+Um conjunto crítico é
+\begin{equation}
+  W^\star
+  \;\in\;
+  \arg\min_{\substack{W\subseteq\bigcap_i V_i\\ W\neq\emptyset}}
+  \min\bigl\{\Delta(S): S\text{ é lado de um min-cut ótimo de }G^{-W}\bigr\}.
+\end{equation}
+$W^\star$ é um subconjunto da interseção cuja remoção deixa dois lados o mais próximos possível em tamanho, com o menor número de arestas de corte.
+O problema toma $V_d=W^\star$ (em particular, um singleton, se esse for o $W^\star$).
+
+\subsection{O grafo depois da falha}
+
+Seja $\delta(V_d)$ o conjunto de arestas com pelo menos um extremo em $V_d$
+(todas as arestas incidentes aos vértices de desastre, inclusive as que ligam dois nós de $V_d$).
+Remover $V_d$ retira também $\delta(V_d)$:
+\begin{equation}
+  G(t)
+  \;=\;
+  \begin{cases}
+    G & t<t_d,\\
+    \bigl(V\setminus V_d,\; E\setminus\delta(V_d)\bigr) & t\ge t_d.
+  \end{cases}
+\end{equation}
+Lightpaths ativos que usam alguma aresta de $\delta(V_d)$ caem em $t_d$.
+
+\subsection{Arestas críticas em cada overlay}
+
+Após remover $V_d$, cada overlay restante é $G_i^{-}=G_i-V_d$.
+As pontes
+\begin{equation}
+  \mathrm{Br}(G_i^{-})
+  \;=\;
+  \bigl\{\,e\in E(G_i^{-}):
+    G_i^{-}-e\text{ tem mais componentes que }G_i^{-}\,\bigr\}
+\end{equation}
+são arestas cuja saturação, ainda na janela de alerta, pode partir $G_i^{-}$ em dois.
+O conjunto de corte de $G^{-V_d}$ (arestas entre as duas partições do min-cut da subseção anterior) é o gargalo \emph{global} correspondente.
+
+Essas duas famílias --- pontes locais de cada $G_i^{-}$ e arestas do corte global --- descrevem onde a competição por espectro é estruturalmente mais grave.
+Não prescrevem como roteá-las.
+
+%----------------------------------------------------------------------
+\section{Independência de ação, descoberta e cooperação}
+%----------------------------------------------------------------------
+
+\begin{definicao}[Ação independente]
+Cada $i\in\mathcal{I}$ é um agente separado.
+Não há controlador, mediador nem alocação conjunta sobre $\bigcup_i G_i$.
+A decisão de $i$ no instante $t$ depende só do estado de $G_i$, de $\mathbf{s}_e$ nas arestas que $i$ usa, e da informação que $i$ possui --- nunca de uma alocação imposta por outro provedor.
+\end{definicao}
+
+Cada provedor descobre o desastre em um instante próprio $\tau_i<t_d$.
+A janela em que $i$ pode migrar é $[\tau_i,t_d)$.
+Os $\tau_i$ não coincidem: o conjunto já alertado,
+\begin{equation}
+  C(t) \;=\; \{i\in\mathcal{I}: t\ge\tau_i\},
+\end{equation}
+é não-decrescente e descreve só o calendário da descoberta.
+Estar em $C(t)$ não implica cooperar: $i$ pode já saber do desastre e mesmo assim permanecer isolado.
+
+\begin{definicao}[Cooperação versus isolamento]
+Um subconjunto $K\subseteq\mathcal{I}$ é \emph{cooperante} se seus membros compartilham informação sobre $G_j$, $j\in K$ (sobreposição de arestas, caminhos de migração, pontes de $G_j^{-}$).
+O complementar $\mathcal{I}\setminus K$ é \emph{não cooperante}: cada um permanece com visão estritamente local.
+Cooperar não une os subgrafos nem transfere o direito de alocar slots; cada $i\in K$ continua agindo de maneira independente sobre $G_i$.
+\end{definicao}
+
+\begin{definicao}[Fases de $i$]
+\begin{align}
+  t<\tau_i
+  &\quad\text{$i$ ainda não sabe: opera $G_i$ normalmente;}
+  \\
+  \tau_i\le t<t_d
+  &\quad\text{$i$ sabe e age sozinho (em $K$ ou fora):}
+  \nonumber\\
+  &\quad\text{migra $s_i\to d_i$ e deixa de depender de $V_d$;}
+  \\
+  t\ge t_d
+  &\quad\text{$V_d$ caiu; o que não migrou perdeu-se.}
+\end{align}
+\end{definicao}
+
+%----------------------------------------------------------------------
+\section{Dados críticos e migração}
+%----------------------------------------------------------------------
+
+O dado crítico do provedor $i$ está em $s_i\in V_d$.
+O destino é um nó de $G_i$ fora da falha; na instância considerada, o mais distante do conjunto $V_d$ em hops:
+\begin{equation}
+  \mathrm{dist}_G(u,V_d)
+  \;=\;
+  \min_{v\in V_d}\mathrm{dist}_G(u,v),
+  \qquad
+  d_i \;\in\; \arg\max_{u\in V_i\setminus V_d} \mathrm{dist}_G(u,V_d).
+\end{equation}
+$D_i$ é o volume a retirar (banda acumulada das requisições de migração aceitas).
+$M_i(t)$ é o volume já aceito até $t$.
+A migração termina em $t_d$ ou quando $M_i\ge D_i$.
+
+Há um conflito topológico incontornável:
+\begin{itemize}[leftmargin=1.4cm]
+  \item requisições de migração têm origem $s_i\in V_d$, portanto todo caminho $s_i\to d_i$ usa $G_i$ \emph{com} $V_d$;
+  \item requisições de fundo que devam permanecer após $t_d$ não podem usar nós de $V_d$ nem arestas incidentes.
+\end{itemize}
+Os dois tipos de demanda competem, até $t_d$, pelos slots das arestas de $G_i$ que não são incidentes a $V_d$ --- em particular pelas pontes de $G_i^{-}$ e, quando $\sigma(e)>1$, com os outros provedores.
+
+%----------------------------------------------------------------------
+\section{Objetivo e métricas}
+%----------------------------------------------------------------------
+
+Sejam $\mathcal{R}_{\mathrm{n}}$ as tentativas de fundo e $\mathcal{R}_{\mathrm{m}}$ as de migração. Então
+\begin{align}
+  B_{\mathrm{n}}
+  &=
+  \frac{|\{r\in\mathcal{R}_{\mathrm{n}}: r\text{ bloqueada}\}|}{|\mathcal{R}_{\mathrm{n}}|},
+  \\
+  B_{\mathrm{m}}
+  &=
+  \frac{|\{r\in\mathcal{R}_{\mathrm{m}}: r\text{ bloqueada}\}|}{|\mathcal{R}_{\mathrm{m}}|},
+  \\
+  A_{\mathrm{n}} &= 1-B_{\mathrm{n}},
+  \qquad
+  A_{\mathrm{m}} = 1-B_{\mathrm{m}}.
+\end{align}
+Para um conjunto de provedores $S\subseteq\mathcal{I}$ não vazio,
+\begin{equation}
+  \eta(S)
+  \;=\;
+  \frac{1}{|S|}\sum_{i\in S}\eta_i.
+\end{equation}
+O objetivo primário é maximizar $\eta(K)$, a fração média migrada dos cooperantes entre os $I$ provedores (equivalente, no limite de $D_i$ fixo, a minimizar $B_{\mathrm{m}}$ desses provedores na janela $[\tau_i,t_d)$).
+O objetivo secundário é conter $B_{\mathrm{n}}$.
+
+Uma métrica de sucesso da coordenação, com $K$ cooperante e $\mathcal{I}\setminus K$ isolado, ambos não vazios, é
+\begin{equation}
+  \label{eq:gap-coop}
+  \Gamma(K)
+  \;=\;
+  \eta(K)-\eta(\mathcal{I}\setminus K)
+  \;>\; 0.
+\end{equation}
+Isto é: os provedores que coordenam informação devem concluir uma fração maior da migração do que os que agem só com visão local.
+$\Gamma(K)>0$ é critério de avaliação, não um resultado pressuposto.
+Quando se compara a mesma instância com $K=\mathcal{I}$ contra $K=\emptyset$, o análogo é $\eta(\mathcal{I})\mid_{K=\mathcal{I}}>\eta(\mathcal{I})\mid_{K=\emptyset}$.
+
+%----------------------------------------------------------------------
+\section{Notação}
+%----------------------------------------------------------------------
+
+\begin{center}
+\small
+\begin{tabular}{@{}ll@{}}
+\toprule
+Símbolo & Significado \\
+\midrule
+$G=(V,E)$, $\ell(e)$ & topologia física e comprimento da aresta \\
+$F$, $\mathbf{s}_e(t)$ & número de slots e ocupação de $e$ \\
+$G_i=(V_i,E_i)$ & subgrafo do provedor $i$ \\
+$\sigma(e)$ & quantos provedores usam $e$ \\
+$V_d$, $t_d$, $\tau_i$ & nós de desastre, instante da falha, descoberta de $i$ \\
+$C(t)$ & provedores já alertados em $t$ (não implica cooperar) \\
+$K$, $\mathcal{I}\setminus K$ & cooperantes (trocam informação) e isolados \\
+$G_i^{-}$, $\mathrm{Br}(G_i^{-})$ & overlay sem $V_d$ e suas pontes \\
+$s_i,d_i,D_i,M_i$ & origem, destino, volume e migrado de $i$ \\
+$B$, $A=1-B$ & bloqueio e disponibilidade deste modelo \\
+$\eta_i$, $\eta(S)$ & fração migrada de $i$ e média em $S\subseteq\mathcal{I}$ \\
+$\eta(K)$ & média dos cooperantes; objetivo primário \\
+$\Gamma(K)$ & $\eta(K)-\eta(\mathcal{I}\setminus K)$; sucesso se $>0$ \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\end{document}
