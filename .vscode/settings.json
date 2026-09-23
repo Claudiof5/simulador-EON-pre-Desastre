@@ -25,6 +25,34 @@
   "cursorpyright.analysis.inlayHints.variableTypes": true,
   "cursorpyright.analysis.typeCheckingMode": "basic",
 
-  // Poetry virtual environment
-  "python.defaultInterpreterPath": "/Users/claudiodefariadantas/Library/Caches/pypoetry/virtualenvs/simulador-eon-pre-desastre-xuIB9mPi-py3.12/bin/python"
+  // Poetry virtual environment (in-project .venv)
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
+  "python.terminal.activateEnvironment": true,
+
+  "terminal.integrated.env.osx": {
+    "PATH": "/Library/TeX/texbin:${env:PATH}"
+  },
+  "latex-workshop.view.pdf.viewer": "tab",
+  "latex-workshop.latex.outDir": "%DIR%/out",
+  "latex-workshop.latex.autoBuild.run": "onSave",
+  "[latex]": {
+    "editor.formatOnSave": false,
+    "editor.defaultFormatter": null
+  },
+  "latex-workshop.formatting.latex": "none",
+  "latex-workshop.latex.tools": [
+    {
+      "name": "latexmk",
+      "command": "/Library/TeX/texbin/latexmk",
+      "args": [
+        "-g",
+        "-pdf",
+        "-outdir=%OUTDIR%",
+        "%DOC%"
+      ],
+      "env": {
+        "PATH": "/Library/TeX/texbin:/usr/bin:/bin:/usr/sbin:/sbin"
+      }
+    }
+  ]
 }

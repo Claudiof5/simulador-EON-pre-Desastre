@@ -1,0 +1,16 @@
+---
+description: Honest claims for results, article text, and explanations
+alwaysApply: true
+---
+
+# Research claims
+
+In this repo, **availability = 1 − blocking rate**. Migration is not prioritized: ~59% migration blocking vs ~32% normal. `class_type` is unused in RSA. α/β/γ sweeps moved blocking by ~0.02 pp — do not call the weighted heuristic a success or a priority scheme.
+
+Weights only penalize links for **non-migration** disaster-aware traffic. β does not steer datacenter flows. `MIGRATION_NETWORK_FRACTION` is a request-rate knob, not reserved spectrum.
+
+Place the problem in Rak’s **preparedness** window. Contrast Zou (post-disaster EON restoration) and Sahoo (post-disaster DCP–carrier via a mediator). Do not claim those papers solve this multi-ISP warning-window RSA problem — or that this code solves theirs.
+
+Priority would require preemption, reserved slots, or routing migration on a weighted graph that still includes the source node. Inverting weights only changes path choice.
+
+When writing `overleaf/`, delete leftover NLP/hemophilia/Reddit sections. State given / find / such that / under. A rejected hypothesis is fine; a success claim against these numbers is not.

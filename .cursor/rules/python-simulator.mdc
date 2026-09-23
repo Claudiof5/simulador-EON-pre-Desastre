@@ -1,0 +1,17 @@
+---
+description: Python conventions for the simulator package and tests
+globs: simulador/**/*.py,tests/**/*.py,experiment_worker.py
+alwaysApply: false
+---
+
+# Simulator Python
+
+Poetry + Ruff (double quotes, 88 cols). No `from x import *`. New files `snake_case` English; keep existing Portuguese class/method names (`rotear_requisicao`).
+
+Add a router by subclassing `RoutingBase` and exporting it in `routing/__init__.py`. Reuse First-Fit slot allocation; do not clone another routing file.
+
+Put experiment-wide knobs on `ScenarioConfig` (`simulation_settings.py`). Defaults live in `settings.py`. Changing α/β/γ requires recomputing weighted paths — they are not a runtime switch on an existing scenario.
+
+Migration traffic is routed with `FirstFitSubnet` in `entities/datacenter.py`, not weighted disaster-aware routing. Disaster-aware topologies omit the failed node; migrations often start there.
+
+Do not add new hardcoded topology leftovers (`WANTED_DISASTER_NODE`, `COMPONENTE_1/2`). Keep CPU workers in `.py` (see `experiment_worker.py`). After behavior changes: `pytest tests/test_critical_functions.py`.

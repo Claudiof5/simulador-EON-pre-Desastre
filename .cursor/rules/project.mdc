@@ -1,0 +1,16 @@
+---
+description: Project identity, layout, and what not to revive
+alwaysApply: true
+---
+
+# EON pre-disaster TCC
+
+Simulator of an Elastic Optical Network in the **warning window** (alert before failure). Multi-ISP overlays, disaster-aware RSA, datacenter migration. Not post-disaster restoration, not BGP.
+
+Canonical code is `simulador/`. Entry point: `simulador.main.Simulator`.
+
+Notebooks of record: `Analise_dados_refactored.ipynb`, `compare_scenarios2.ipynb`, `Experiment_best_weight_for_scenario.ipynb`, `validate_weights.ipynb`.
+
+Do not extend or “fix” `Analise_dados.ipynb`, `compare_scenarios.ipynb`, `modeloProblema.ipynb`, notebook JSON patch scripts, or unused routers `disaster.py`, `disaster_aware_with_blocking.py`, `best_fit_sliding_window.py`. Do not resurrect `simuladorV2/`.
+
+`output/` is local results (often tens of GB). Do not commit csv/pkl. `overleaf/main.tex` still has leftover NLP template sections — replace them, do not mix topics.

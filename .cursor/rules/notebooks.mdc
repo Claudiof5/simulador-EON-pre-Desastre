@@ -1,0 +1,15 @@
+---
+description: Which notebooks to edit and how they should call the package
+globs: "**/*.ipynb"
+alwaysApply: false
+---
+
+# Notebooks
+
+Edit only the notebooks of record: `Analise_dados_refactored.ipynb`, `compare_scenarios2.ipynb`, `Experiment_best_weight_for_scenario.ipynb`, `validate_weights.ipynb`.
+
+Import analysis/plots from `simulador.analysis` and `simulador.visualization`. Do not paste hundreds of helper functions back into cells. Parallel scenario runs must call `experiment_worker.py`, not an in-notebook worker.
+
+Do not commit `.ipynb_checkpoints/`. Treat `output/` as generated data.
+
+If comparing routing, say which pair it is: disaster-aware vs not, or α/β/γ sweep (all disaster-aware). Those are different experiments.
