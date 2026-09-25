@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from copy import deepcopy
 from typing import cast
 
@@ -266,3 +267,95 @@ class ScenarioGenerator:
         )
 
         return lista_de_cenarios
+
+    @staticmethod
+    def gerar_cenario_com_cooperacao(
+        base_scenario: Scenario,
+        cooperating_isps: Iterable[int],
+        copiar: bool = True,
+    ) -> Scenario:
+        """Return a scenario variant in which only the ISPs in K cooperate.
+
+        Topology, ISPs, disaster, traffic and α/β/γ stay the same as in
+        ``base_scenario``. Every ISP starts with isolated weights (own data only);
+        at its reaction time an ISP in K joins the cooperation and the weights of
+        all cooperating ISPs are recomputed with the shared data. ISPs outside K
+        switch to disaster routing but keep their isolated weights.
+
+        Args:
+            base_scenario: Scenario used as template
+            cooperating_isps: ISP IDs of the cooperating set K (may be empty)
+            copiar: Deep copy the base scenario first. Pass False when the base
+                scenario is a throwaway (e.g. just loaded from disk in a worker).
+
+        Returns:
+            Scenario whose config has ``cooperating_isps`` set to sorted K
+        """
+        base_config = (
+            base_scenario.config
+            if base_scenario.config is not None
+            else ScenarioConfig()
+        )
+        isp_ids = {isp.isp_id for isp in base_scenario.lista_de_isps}
+        cooperantes = tuple(sorted(set(cooperating_isps)))
+        desconhecidos = set(cooperantes) - isp_ids
+        if desconhecidos:
+            raise ValueError(
+                f"ISPs {sorted(desconhecidos)} are not in the scenario "
+                f"{sorted(isp_ids)}"
+            )
+
+        if not base_scenario.desastre.list_of_dict_node_per_start_time:
+            raise ValueError("Base scenario has no disaster node")
+        disaster_node = base_scenario.desastre.list_of_dict_node_per_start_time[0][
+            "node"
+        ]
+
+        rotulo = "-".join(map(str, cooperantes)) or "none"
+        variant_config = base_config.copy_with(
+            name=f"{base_config.name}_K{rotulo}",
+            cooperating_isps=cooperantes,
+            metadata={
+                **base_config.metadata,
+                "cooperation_variation": True,
+                "base_scenario": base_config.name,
+            },
+        )
+
+        novo_cenario = deepcopy(base_scenario) if copiar else base_scenario
+        novo_cenario.config = variant_config
+
+        # Reset every ISP to its isolated (own data only) weighted paths so all
+        # variants start from the same state regardless of how the base was built.
+        for isp in novo_cenario.lista_de_isps:
+            isp.is_cooperating = False
+            isp.cooperation_start_time = None
+            isp.computar_caminhos_internos_durante_desastre(
+                novo_cenario.topology.topology,
+                disaster_node,
+                variant_config.numero_de_caminhos,
+                lista_de_isps=novo_cenario.lista_de_isps,
+                config=variant_config,
+            )
+
+        novo_cenario.initialize_cooperation(disaster_node, variant_config, cooperantes)
+        return novo_cenario
+
+    @staticmethod
+    def gerar_cenarios_com_diferentes_cooperacoes(
+        base_scenario: Scenario,
+        lista_de_cooperantes: list[Iterable[int]],
+    ) -> list[Scenario]:
+        """Generate one scenario variant per cooperating set K.
+
+        Args:
+            base_scenario: Scenario used as template
+            lista_de_cooperantes: List of cooperating sets, e.g. [(), (0,), (0, 1)]
+
+        Returns:
+            List of Scenario objects, one per K, sharing traffic and disaster
+        """
+        return [
+            ScenarioGenerator.gerar_cenario_com_cooperacao(base_scenario, cooperantes)
+            for cooperantes in lista_de_cooperantes
+        ]

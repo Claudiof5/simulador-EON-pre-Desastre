@@ -119,13 +119,17 @@ class ISP:
         # Wait until reaction time
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
 
-        # Mark as cooperating and trigger weight recalculation
-        self.is_cooperating = True
-        self.cooperation_start_time = simulador.env.now
+        # Join the cooperation (if this ISP is in K) and trigger weight
+        # recalculation. ISPs outside K keep their isolated weights.
         if self.cooperation_coordinator:
-            self.cooperation_coordinator.register_cooperation(
+            self.is_cooperating = self.cooperation_coordinator.register_cooperation(
                 self.isp_id, simulador.env.now
             )
+        else:
+            self.is_cooperating = True
+        self.cooperation_start_time = (
+            simulador.env.now if self.is_cooperating else None
+        )
 
         # Switch to disaster routing
         self.roteamento_atual = self.roteamento_desastre

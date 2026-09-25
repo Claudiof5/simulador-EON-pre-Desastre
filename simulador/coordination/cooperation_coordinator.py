@@ -28,6 +28,7 @@ class CooperationCoordinator:
         disaster_node: Node affected by disaster
         config: Scenario configuration with weight parameters
         cooperating_isps: Set of ISP IDs currently cooperating
+        allowed_isps: ISP IDs allowed to cooperate (K). None means every ISP.
     """
 
     def __init__(
@@ -36,6 +37,7 @@ class CooperationCoordinator:
         topology: nx.Graph,
         disaster_node: int,
         config: ScenarioConfig,
+        allowed_isps: set[int] | None = None,
     ) -> None:
         """Initialize the cooperation coordinator.
 
@@ -44,30 +46,52 @@ class CooperationCoordinator:
             topology: Network topology graph
             disaster_node: Node that will fail during disaster
             config: Scenario configuration with weight parameters (α, β, γ)
+            allowed_isps: ISP IDs in the cooperating set K. ISPs outside it still
+                react (switch to disaster routing) but keep their isolated
+                weights. None means every ISP may cooperate.
         """
         self.lista_de_isps = lista_de_isps
         self.topology = topology
         self.disaster_node = disaster_node
         self.config = config
         self.cooperating_isps: set[int] = set()  # ISP IDs that are cooperating
+        self.allowed_isps: set[int] | None = (
+            None if allowed_isps is None else set(allowed_isps)
+        )
 
-    def register_cooperation(self, isp_id: int, current_time: float) -> None:
+    def can_cooperate(self, isp_id: int) -> bool:
+        """Return True if the ISP belongs to the cooperating set K."""
+        return self.allowed_isps is None or isp_id in self.allowed_isps
+
+    def register_cooperation(self, isp_id: int, current_time: float) -> bool:
         """Register an ISP as cooperating and trigger weight updates.
 
-        Called when an ISP reaches its reaction time and starts cooperating.
-        This triggers recalculation of weights for all currently cooperating ISPs
-        to incorporate the newly available information.
+        Called when an ISP reaches its reaction time. If the ISP is in the
+        cooperating set K, this triggers recalculation of weights for all
+        currently cooperating ISPs to incorporate the new information. ISPs
+        outside K are left isolated and nothing is recalculated.
 
         Args:
-            isp_id: ID of the ISP that started cooperating
+            isp_id: ID of the ISP that reached its reaction time
             current_time: Current simulation time
+
+        Returns:
+            True if the ISP joined the cooperation, False if it stays isolated.
         """
+        if not self.can_cooperate(isp_id):
+            print(
+                f"[Cooperation] ISP {isp_id} reacted at t={current_time:.2f} "
+                "but is not in K: stays isolated"
+            )
+            return False
+
         self.cooperating_isps.add(isp_id)
         print(f"[Cooperation] ISP {isp_id} started cooperating at t={current_time:.2f}")
         print(f"[Cooperation] Total cooperating ISPs: {len(self.cooperating_isps)}")
 
         # Recalculate weights for all cooperating ISPs with updated cooperation list
         self._recalculate_weights_for_all_cooperating(current_time)
+        return True
 
     def get_cooperating_isps_for(self, isp_id: int) -> list[ISP]:
         """Get list of ISPs cooperating with the given ISP.

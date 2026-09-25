@@ -12,6 +12,8 @@ from simulador.entities.isp import ISP
 from simulador.routing.base import RoutingBase
 
 if TYPE_CHECKING:
+    from collections.abc import Iterable
+
     from simulador.config.simulation_settings import ScenarioConfig
     from simulador.coordination.cooperation_coordinator import CooperationCoordinator
 
@@ -67,7 +69,10 @@ class Scenario:
             isp.troca_roteamento_desastre(roteamento)
 
     def initialize_cooperation(
-        self, disaster_node: int, config: ScenarioConfig
+        self,
+        disaster_node: int,
+        config: ScenarioConfig,
+        cooperating_isps: Iterable[int] | None = None,
     ) -> None:
         """Initialize cooperation coordinator and link to ISPs.
 
@@ -79,13 +84,25 @@ class Scenario:
         Args:
             disaster_node: Node affected by disaster
             config: Scenario configuration with weight parameters (α, β, γ)
+            cooperating_isps: ISP IDs in the cooperating set K. None falls back
+                to ``config.cooperating_isps``; if that is None too, every ISP
+                cooperates.
         """
         from simulador.coordination.cooperation_coordinator import (
             CooperationCoordinator,
         )
 
+        if cooperating_isps is None:
+            # getattr: configs pickled before this field existed lack it
+            cooperating_isps = getattr(config, "cooperating_isps", None)
+        allowed = None if cooperating_isps is None else set(cooperating_isps)
+
         self.cooperation_coordinator = CooperationCoordinator(
-            self.lista_de_isps, self.topology.topology, disaster_node, config
+            self.lista_de_isps,
+            self.topology.topology,
+            disaster_node,
+            config,
+            allowed_isps=allowed,
         )
 
         # Link coordinator to all ISPs so they can register when they start cooperating

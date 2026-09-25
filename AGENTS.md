@@ -40,6 +40,7 @@ Legacy / do not extend: `Analise_dados.ipynb`, `compare_scenarios.ipynb`, `model
 - **Datacenter migration is routed with `FirstFitSubnet`, not the weighted disaster-aware router** (`entities/datacenter.py`). α/β/γ only affect other disaster-aware traffic. Disaster-aware graphs drop the failed node, so they cannot route migrations that **start** at that node without a dedicated variant.
 - `MIGRATION_NETWORK_FRACTION` sizes how many migration requests are generated. It does **not** reserve spectrum.
 - There is no preemption and no per-class RSA.
+- `FirstFitWeightedSubnetDisasterAware` tries the ISP's precomputed candidates in the order computed on the α/β/γ (cooperation) weighted graph. Before this fix it re-sorted them by static link-usage weights, so α/β/γ and cooperation only changed *which* paths were candidates; results in `output/best_weight_experiment` and `output/cooperation_experiment` predate the fix (v2 lives in `output/cooperation_experiment_v2`).
 
 ## Research claims (mandatory)
 

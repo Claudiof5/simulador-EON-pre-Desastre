@@ -137,6 +137,11 @@ class ScenarioConfig:
     beta: float = BETA  # Migration traffic weight in weighted routing
     gamma: float = GAMMA  # Link criticality weight in weighted routing
 
+    # Cooperation (problema.tex, K): IDs of the ISPs that share information once
+    # they react. None keeps the historical behavior (every ISP cooperates).
+    # An empty tuple means nobody cooperates (every ISP keeps a local view).
+    cooperating_isps: tuple[int, ...] | None = None
+
     # Disaster parameters
     disaster_start: float = INICIO_DESASTRE
     disaster_start_variance: float = VARIANCIA_INICIO_DESASTRE
