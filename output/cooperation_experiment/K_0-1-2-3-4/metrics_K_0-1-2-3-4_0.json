@@ -1,0 +1,93 @@
+{
+ "success": true,
+ "base_index": 0,
+ "K": "K_0-1-2-3-4",
+ "variante": "cooperacao",
+ "cooperantes": [
+  0,
+  1,
+  2,
+  3,
+  4
+ ],
+ "summary": {
+  "K": "K_0-1-2-3-4",
+  "k": 5,
+  "B_n": 0.28728682170542635,
+  "B_m": 0.5595602500538909,
+  "A_n": 0.7127131782945737,
+  "A_m": 0.4404397499461091,
+  "B_n_janela": 0.34689852272269855,
+  "eta_todos": 0.7917448097656598,
+  "eta_K": 0.7917448097656598,
+  "eta_isolados": NaN,
+  "Gamma": NaN,
+  "n_normais": 187050,
+  "n_migracao": 23195,
+  "t_d": 578.0072983371658,
+  "base_index": 0,
+  "variante": "cooperacao"
+ },
+ "per_isp": [
+  {
+   "K": "K_0-1-2-3-4",
+   "k": 5,
+   "isp_id": 0,
+   "em_K": true,
+   "tau_i": 372.34140956437136,
+   "eta_i": 0.6238617125545755,
+   "B_m_i": 0.5122606650990931,
+   "n_migracao_i": 2977,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-1-2-3-4",
+   "k": 5,
+   "isp_id": 1,
+   "em_K": true,
+   "tau_i": 269.0185110232137,
+   "eta_i": 1.0,
+   "B_m_i": 0.4229287090558767,
+   "n_migracao_i": 5190,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-1-2-3-4",
+   "k": 5,
+   "isp_id": 2,
+   "em_K": true,
+   "tau_i": 259.9701348269643,
+   "eta_i": 0.7051804330392943,
+   "B_m_i": 0.6543399118605097,
+   "n_migracao_i": 5219,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-1-2-3-4",
+   "k": 5,
+   "isp_id": 3,
+   "em_K": true,
+   "tau_i": 275.6601097152598,
+   "eta_i": 0.8437530072173216,
+   "B_m_i": 0.5544292639929485,
+   "n_migracao_i": 4538,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-1-2-3-4",
+   "k": 5,
+   "isp_id": 4,
+   "em_K": true,
+   "tau_i": 259.25743932558504,
+   "eta_i": 0.7859288960171077,
+   "B_m_i": 0.6313792449250617,
+   "n_migracao_i": 5271,
+   "base_index": 0,
+   "variante": "cooperacao"
+  }
+ ]
+}

@@ -1,0 +1,101 @@
+{
+ "success": true,
+ "base_index": 0,
+ "K": "K_1-4",
+ "variante": "cooperacao",
+ "cooperantes": [
+  1,
+  4
+ ],
+ "summary": {
+  "K": "K_1-4",
+  "k": 2,
+  "B_n": 0.2936487570168404,
+  "B_m": 0.5581806423798232,
+  "A_n": 0.7063512429831595,
+  "A_m": 0.44181935762017677,
+  "B_n_janela": 0.3702048866884032,
+  "eta_todos": 0.7871827497104161,
+  "eta_K": 0.9002637440969438,
+  "eta_isolados": 0.7117954201193978,
+  "Gamma": 0.18846832397754598,
+  "B_n_K": 0.3227538934264779,
+  "B_n_isolados": 0.27366180926273265,
+  "n_normais": 187050,
+  "n_migracao": 23195,
+  "t_d": 578.0072983371658,
+  "base_index": 0,
+  "variante": "cooperacao",
+  "fator_modulacao_fixo": null,
+  "protecao": "adaptativo/cooperacao",
+  "prot_max_links": 5,
+  "prot_normais_restringidas": 9550
+ },
+ "per_isp": [
+  {
+   "K": "K_1-4",
+   "k": 2,
+   "isp_id": 0,
+   "em_K": false,
+   "tau_i": 372.34140956437136,
+   "eta_i": 0.6589895749799519,
+   "B_m_i": 0.49244205576083305,
+   "B_n_i": 0.19785553047404064,
+   "n_migracao_i": 2977,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_1-4",
+   "k": 2,
+   "isp_id": 1,
+   "em_K": true,
+   "tau_i": 269.0185110232137,
+   "eta_i": 1.0,
+   "B_m_i": 0.4188824662813102,
+   "B_n_i": 0.3514503487839694,
+   "n_migracao_i": 5190,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_1-4",
+   "k": 2,
+   "isp_id": 2,
+   "em_K": false,
+   "tau_i": 259.9701348269643,
+   "eta_i": 0.6326436781609195,
+   "B_m_i": 0.6735006706265568,
+   "B_n_i": 0.17028074431263499,
+   "n_migracao_i": 5219,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_1-4",
+   "k": 2,
+   "isp_id": 3,
+   "em_K": false,
+   "tau_i": 275.6601097152598,
+   "eta_i": 0.8437530072173216,
+   "B_m_i": 0.5544292639929485,
+   "B_n_i": 0.3827331578009621,
+   "n_migracao_i": 4538,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_1-4",
+   "k": 2,
+   "isp_id": 4,
+   "em_K": true,
+   "tau_i": 259.25743932558504,
+   "eta_i": 0.8005274881938875,
+   "B_m_i": 0.6215139442231076,
+   "B_n_i": 0.2954516335682255,
+   "n_migracao_i": 5271,
+   "base_index": 0,
+   "variante": "cooperacao"
+  }
+ ]
+}

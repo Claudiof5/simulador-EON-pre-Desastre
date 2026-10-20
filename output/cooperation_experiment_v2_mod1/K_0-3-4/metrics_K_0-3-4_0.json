@@ -1,0 +1,92 @@
+{
+ "success": true,
+ "base_index": 0,
+ "K": "K_0-3-4",
+ "variante": "cooperacao",
+ "cooperantes": [
+  0,
+  3,
+  4
+ ],
+ "summary": {
+  "K": "K_0-3-4",
+  "k": 3,
+  "B_n": 0.36740978348035286,
+  "B_m": 0.5673205432205216,
+  "A_n": 0.6325902165196471,
+  "A_m": 0.4326794567794784,
+  "B_n_janela": 0.4342068188222034,
+  "eta_todos": 0.7743633609551813,
+  "eta_K": 0.7514093082657638,
+  "eta_isolados": 0.8087944399893077,
+  "Gamma": -0.05738513172354387,
+  "n_normais": 187050,
+  "n_migracao": 23195,
+  "t_d": 578.0072983371658,
+  "base_index": 0,
+  "variante": "cooperacao",
+  "fator_modulacao_fixo": 1
+ },
+ "per_isp": [
+  {
+   "K": "K_0-3-4",
+   "k": 3,
+   "isp_id": 0,
+   "em_K": true,
+   "tau_i": 372.34140956437136,
+   "eta_i": 0.6471282188363183,
+   "B_m_i": 0.49815250251931475,
+   "n_migracao_i": 2977,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-3-4",
+   "k": 3,
+   "isp_id": 1,
+   "em_K": false,
+   "tau_i": 269.0185110232137,
+   "eta_i": 1.0,
+   "B_m_i": 0.4398843930635838,
+   "n_migracao_i": 5190,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-3-4",
+   "k": 3,
+   "isp_id": 2,
+   "em_K": false,
+   "tau_i": 259.9701348269643,
+   "eta_i": 0.6175888799786153,
+   "B_m_i": 0.6775244299674267,
+   "n_migracao_i": 5219,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-3-4",
+   "k": 3,
+   "isp_id": 3,
+   "em_K": true,
+   "tau_i": 275.6601097152598,
+   "eta_i": 0.8550441058540498,
+   "B_m_i": 0.5480387836051124,
+   "n_migracao_i": 4538,
+   "base_index": 0,
+   "variante": "cooperacao"
+  },
+  {
+   "K": "K_0-3-4",
+   "k": 3,
+   "isp_id": 4,
+   "em_K": true,
+   "tau_i": 259.25743932558504,
+   "eta_i": 0.7520556001069233,
+   "B_m_i": 0.6393473724151015,
+   "n_migracao_i": 5271,
+   "base_index": 0,
+   "variante": "cooperacao"
+  }
+ ]
+}

@@ -84,6 +84,10 @@ class ISP:
         self.cooperation_start_time: float | None = None
         self.cooperation_coordinator = None  # Set externally by scenario
 
+        # Fixed modulation factor (None = distance-based). See
+        # Scenario.aplicar_modulacao_fixa.
+        self.fator_modulacao_fixo: float | None = None
+
     def define_datacenter(
         self,
         disaster: Disaster,
@@ -119,13 +123,17 @@ class ISP:
         # Wait until reaction time
         yield simulador.env.timeout(self.datacenter.tempo_de_reacao - simulador.env.now)
 
-        # Mark as cooperating and trigger weight recalculation
-        self.is_cooperating = True
-        self.cooperation_start_time = simulador.env.now
+        # Join the cooperation (if this ISP is in K) and trigger weight
+        # recalculation. ISPs outside K keep their isolated weights.
         if self.cooperation_coordinator:
-            self.cooperation_coordinator.register_cooperation(
+            self.is_cooperating = self.cooperation_coordinator.register_cooperation(
                 self.isp_id, simulador.env.now
             )
+        else:
+            self.is_cooperating = True
+        self.cooperation_start_time = (
+            simulador.env.now if self.is_cooperating else None
+        )
 
         # Switch to disaster routing
         self.roteamento_atual = self.roteamento_desastre
@@ -567,8 +575,12 @@ class ISP:
             distancia: Path distance
 
         Returns:
-            float: Modulation factor
+            float: Modulation factor (the fixed override, if one is set)
         """
+        # getattr: ISPs pickled before the override existed lack the attribute
+        fator_fixo = getattr(self, "fator_modulacao_fixo", None)
+        if fator_fixo is not None:
+            return fator_fixo
         if distancia <= DISTANCIA_MODULACAO_4:
             return FATOR_MODULACAO_4
         if distancia <= DISTANCIA_MODULACAO_3:

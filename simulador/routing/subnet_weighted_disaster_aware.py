@@ -23,7 +23,14 @@ if TYPE_CHECKING:
 class FirstFitWeightedSubnetDisasterAware(RoutingBase):
     """Subnet routing class for same-ISP traffic that avoids disaster nodes.
 
-    Uses weighted path selection where weights are based on:
+    Candidate paths from the ISP (``weighted_caminhos_internos_isp_durante_desastre``)
+    are tried in the order the ISP computed them: k-shortest paths on the graph
+    weighted by α/β/γ, which cooperation updates. The router does NOT re-rank
+    them, otherwise the cooperation weights would only affect which paths are
+    candidates, never which one is tried first.
+
+    Only the topology-wide fallback (ISP has no precomputed paths) is ranked by
+    the router's own static weights, based on:
     1. Link usage frequency in shortest paths (0-20% increase)
     2. Link usage frequency in migration paths (0-20% increase)
 
@@ -114,6 +121,18 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
                 requisicao, topology
             )
         )
+        # Migration-corridor protection restricts background requests only
+        protecao = getattr(topology, "protecao_migracao", None)
+        if protecao is not None:
+            informacoes_dos_datapaths, pelo_menos_uma_janela_habil = protecao.aplicar(
+                requisicao, informacoes_dos_datapaths, env.now
+            )
+            if requisicao.requisicao_de_migracao:
+                protecao.registra_migracao(
+                    requisicao.src_isp,
+                    not pelo_menos_uma_janela_habil,
+                    requisicao.bandwidth,
+                )
         if pelo_menos_uma_janela_habil:
             FirstFitWeightedSubnetDisasterAware.__aloca_requisicao(
                 requisicao, topology, informacoes_dos_datapaths, env
@@ -557,7 +576,9 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
             topology: Network topology
 
         Returns:
-            tuple: (list of path information sorted by weighted distance, at least one available window)
+            tuple: (list of path information in the ISP's order, at least one
+                available window). ``weighted_distance`` is kept for inspection
+                only; it does not change the order.
         """
         # Get link weights for this ISP
         isp_id = requisicao.src_isp
@@ -620,8 +641,8 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
             if maior_janela_caminho >= numero_slots_necessarios:
                 pelo_menos_uma_janela_habil = True
 
-        # Sort paths by weighted distance (prefer less congested paths)
-        paths_with_weights.sort(key=lambda x: x["weighted_distance"])
+        # Keep the ISP's order: these paths come from k-shortest on the α/β/γ
+        # (cooperation) weighted graph. Re-sorting here used to discard it.
         lista_de_informacoes_datapath = paths_with_weights
 
         return (lista_de_informacoes_datapath, pelo_menos_uma_janela_habil)
