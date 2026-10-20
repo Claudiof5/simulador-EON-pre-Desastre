@@ -84,6 +84,10 @@ class ISP:
         self.cooperation_start_time: float | None = None
         self.cooperation_coordinator = None  # Set externally by scenario
 
+        # Fixed modulation factor (None = distance-based). See
+        # Scenario.aplicar_modulacao_fixa.
+        self.fator_modulacao_fixo: float | None = None
+
     def define_datacenter(
         self,
         disaster: Disaster,
@@ -571,8 +575,12 @@ class ISP:
             distancia: Path distance
 
         Returns:
-            float: Modulation factor
+            float: Modulation factor (the fixed override, if one is set)
         """
+        # getattr: ISPs pickled before the override existed lack the attribute
+        fator_fixo = getattr(self, "fator_modulacao_fixo", None)
+        if fator_fixo is not None:
+            return fator_fixo
         if distancia <= DISTANCIA_MODULACAO_4:
             return FATOR_MODULACAO_4
         if distancia <= DISTANCIA_MODULACAO_3:

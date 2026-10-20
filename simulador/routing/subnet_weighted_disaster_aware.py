@@ -121,6 +121,18 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
                 requisicao, topology
             )
         )
+        # Migration-corridor protection restricts background requests only
+        protecao = getattr(topology, "protecao_migracao", None)
+        if protecao is not None:
+            informacoes_dos_datapaths, pelo_menos_uma_janela_habil = protecao.aplicar(
+                requisicao, informacoes_dos_datapaths, env.now
+            )
+            if requisicao.requisicao_de_migracao:
+                protecao.registra_migracao(
+                    requisicao.src_isp,
+                    not pelo_menos_uma_janela_habil,
+                    requisicao.bandwidth,
+                )
         if pelo_menos_uma_janela_habil:
             FirstFitWeightedSubnetDisasterAware.__aloca_requisicao(
                 requisicao, topology, informacoes_dos_datapaths, env

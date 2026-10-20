@@ -58,6 +58,8 @@ class CooperationCoordinator:
         self.allowed_isps: set[int] | None = (
             None if allowed_isps is None else set(allowed_isps)
         )
+        # Optional MigrationProtection, set by Scenario._inicializar_protecao
+        self.protecao = None
 
     def can_cooperate(self, isp_id: int) -> bool:
         """Return True if the ISP belongs to the cooperating set K."""
@@ -83,15 +85,25 @@ class CooperationCoordinator:
                 f"[Cooperation] ISP {isp_id} reacted at t={current_time:.2f} "
                 "but is not in K: stays isolated"
             )
+            self._atualizar_protecao(isp_id)
             return False
 
         self.cooperating_isps.add(isp_id)
         print(f"[Cooperation] ISP {isp_id} started cooperating at t={current_time:.2f}")
         print(f"[Cooperation] Total cooperating ISPs: {len(self.cooperating_isps)}")
 
-        # Recalculate weights for all cooperating ISPs with updated cooperation list
-        self._recalculate_weights_for_all_cooperating(current_time)
+        # Recalculate weights for all cooperating ISPs with updated cooperation
+        # list (skipped when the scenario runs without cooperative weights)
+        if getattr(self.config, "pesos_cooperativos", True):
+            self._recalculate_weights_for_all_cooperating(current_time)
+        # After the weights: corridors are read from the updated paths
+        self._atualizar_protecao(isp_id)
         return True
+
+    def _atualizar_protecao(self, isp_id: int) -> None:
+        protecao = getattr(self, "protecao", None)
+        if protecao is not None:
+            protecao.atualizar(isp_id, set(self.cooperating_isps))
 
     def get_cooperating_isps_for(self, isp_id: int) -> list[ISP]:
         """Get list of ISPs cooperating with the given ISP.

@@ -1,218 +1,389 @@
-\documentclass{article}
-\usepackage{graphicx} % Required for inserting images
-\usepackage{array}
-\makeatletter
-\providecommand{\keywords}[1]{\textbf{Keywords:} #1}
-\renewenvironment{abstract}{
-    \list{}{\advance\topsep by0.35cm\relax\small
-    \leftmargin=1cm
-    \labelwidth=\z@ 
-    \listparindent=\z@
-    \itemindent\listparindent
-    \rightmargin\leftmargin}
-    \item[\hskip\labelsep\bfseries\abstractname.] 
-}{\endlist}
-\makeatother
+\documentclass[11pt,a4paper]{article}
 
-\title{Can Contextual Consistency Be Evaluated Without Heavy Computational Resources?}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage[english]{babel}
+\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{geometry}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{graphicx}
+\usepackage{xcolor}
+\usepackage{hyperref}
+\usepackage{microtype}
+
+\geometry{margin=2.4cm}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+
+\theoremstyle{definition}
+\newtheorem{problem}{Problem}
+\newtheorem{definition}{Definition}
+
+\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
+
+\providecommand{\keywords}[1]{\par\medskip\noindent\textbf{Keywords:} #1}
+
+\title{Cooperative Spectrum Reservation for Datacenter Migration\\
+in Multi-Provider Elastic Optical Networks\\
+during the Disaster Warning Window}
 \author{Cláudio de Faria Dantas}
-\date{January 2026}
+\date{\todo{date}}
 
 \begin{document}
-
 \maketitle
 
 \begin{abstract}
-...
-
-\keywords{a $\cdot$ b $\cdot$ c.}
+When a disaster is forecast, operators have a short warning window to move critical data away from the infrastructure that is about to fail.
+In an elastic optical network shared by several providers, each provider sees only its own overlay, learns about the threat at its own time and allocates spectrum on its own, while all of them compete for the same contiguous slots on the links that leave the threatened site.
+We study whether providers that agree to cooperate can migrate more data before the failure than providers that act alone.
+Cooperation is restricted to exchanging information: no provider allocates spectrum for another.
+We propose \emph{cooperative corridor protection}: on the links of a cooperator's migration path that, according to a per-link tenant count disclosed by the infrastructure owner, are used only by cooperating providers, background traffic is kept out of a reserved part of the spectrum until the failure.
+The reservation is either a fixed fraction of the link or sized by the migration still pending.
+We evaluate the mechanism with a discrete-event simulator of a 24-node backbone shared by five providers, over every possible cooperating subset, against disaster-aware First-Fit without reservation and against providers that protect only the links they use alone.
+\todo{one or two sentences with the main quantitative results once the final runs are in.}
 \end{abstract}
 
+\keywords{elastic optical networks $\cdot$ disaster preparedness $\cdot$ datacenter migration $\cdot$ multi-provider cooperation $\cdot$ spectrum reservation}
+
+%======================================================================
 \section{Introduction}
-...
+%======================================================================
 
-\section{Background}
-This section introduces the three major concepts for this work: Internet Service Providers(ISPs), disasters and recovery strategies in Optical Networks.
-\subsection{Internet Service Providers}
-Internet Service Providers are organizations responsible for delivering connectivity services that enable users, enterprises, and distributed systems to access the global Internet. According to the Internet Engineering Task Force (IETF), ISPs provide IP-layer reachability, routing capabilities, and address space management in compliance with standardized inter-domain protocols such as BGP \cite{rekhter1993cidr,rekhter1993architecture}. These providers operate routing infrastructures, long-haul optical backbones, regional aggregation networks, and interconnection points that allow independent autonomous systems to exchange traffic efficiently.
+Earthquakes, floods, wildfires and large power outages damage communication infrastructure in geographically correlated ways: many nodes and links fail together, and the datacenters attached to them become unreachable \cite{rak2021disaster}.
+Most work on disaster resilience in optical networks addresses what happens \emph{after} the failure, restoring as many connections as possible with the surviving resources \cite{zou2022drama,zou2025dramapro,sahoo2022cooperation}.
+Some disasters, however, can be forecast minutes to hours in advance.
+In that \emph{warning window}, the network is still intact and the most valuable action is preparedness: moving critical data out of the area that is about to fail.
 
-ISPs are traditionally categorized into hierarchical tiers, based on their scale, routing policies, and interconnection agreements. Tier-1 ISPs maintain global backbone networks and peer with other Tier-1 networks on a settlement-free basis. Tier-2 ISPs purchase upstream transit while maintaining regional peering, and Tier-3 ISPs serve primarily as access providers connected directly to end users. This multi-tier structure forms the economic and topological foundation of the Internet and affects routing decisions, performance, and resilience \cite{norton2011peering}.
+This work focuses on that window in an elastic optical network (EON) whose physical infrastructure is shared by several providers.
+Each provider operates a virtual overlay of the physical topology, sees only its own overlay, discovers the threat at its own time and allocates spectrum independently.
+All of them hold critical data at the threatened site and must migrate it before the failure, through links that are partly shared and whose spectrum must be contiguous and identical along each path.
+The links leaving the threatened site are typically shared by several providers, and migration competes there with the background traffic that keeps flowing during the warning window.
 
-From a technological standpoint, ISPs rely heavily on fiber-optic transport systems to support latency-sensitive and bandwidth-intensive services such as cloud computing, video distribution, and inter-datacenter communication. Optical networking research demonstrates that technologies such as wavelength-division multiplexing (WDM) and elastic optical networks (EONs) allow ISPs to scale capacity and optimize spectrum utilization under increasing traffic pressure \cite{jinno2009spectrum,shen2016survivable}. These innovations enable ISPs to deliver high-quality Internet connectivity by combining flexible spectrum allocation, high-capacity optical links, and advanced resource management.
+The question we ask is whether providers that \emph{cooperate} can complete more of their migration than providers that act alone, under the constraint that cooperation is limited to exchanging information.
+There is no central allocator and no provider allocates spectrum for another.
 
-ISPs also play a central role in network survivability and disaster resilience. Failures in ISP-operated carrier networks can cause significant connectivity degradation across cloud platforms, data centers, and end-user services. Research on post-disaster optical networking shows that cooperative restoration strategies between datacenter providers and carriers (ISPs) improve service restoration by more than 70% compared to independent recovery methods \cite{sahoo2022cooperation}. Likewise, recovery algorithms for elastic optical networks demonstrate the importance of dynamic spectrum reallocation, degradation-aware routing, and regenerator-assisted recovery to maintain service continuity under disaster-induced failures \cite{zou2025dramapro, zou2022drama}. These approaches emphasize the critical role that ISPs hold in the broader Internet ecosystem when responding to large-scale disruptions.
+\paragraph{Contributions.}
+\begin{itemize}[leftmargin=1.2em]
+  \item A formulation of the multi-provider migration problem in the disaster warning window, with independent action, independent discovery and information-only cooperation (Section~\ref{sec:problem}).
+  \item \emph{Cooperative corridor protection}, a mechanism in which each cooperator restricts its own background traffic on the links of its migration path that the cooperating group can prove are used by no other provider. Two reservation sizes are studied: a fixed fraction of the link and a demand-driven size that follows the migration still pending (Section~\ref{sec:mechanism}).
+  \item An evaluation over every subset of cooperating providers, comparing cooperative protection with disaster-aware First-Fit without reservation and with an individual variant in which each provider protects only the links it uses alone (Sections~\ref{sec:setup} and~\ref{sec:results}).
+\end{itemize}
 
-Economically, ISPs participate in a complex interconnection environment involving transit agreements, peering contracts, and service-level guarantees. The economics of Internet interconnection influence how ISPs engineer traffic, provision capacity, and negotiate connectivity relationships \cite{faratin2008complexity}. Consequently, ISPs must balance technical efficiency, resilience, and economic sustainability to maintain robust and scalable Internet infrastructures.
+\todo{organization paragraph once the final section list is fixed.}
 
-\subsection{Disasters and Recovery Strategies in Optical Networks}
+%======================================================================
+\section{Background and related work}
+\label{sec:background}
+%======================================================================
 
-Large-scale disasters represent one of the most critical threats to the resilience and operational continuity of modern communication infrastructures. Unlike isolated failures, which typically involve the loss of a single node or link, disasters disrupt multiple geographically correlated components simultaneously, including optical fibers, routers, power supply nodes and even datacenter facilities. This correlated nature invalidates the assumptions of independence underlying most classical protection mechanisms, exposing the inherent fragility of networks when faced with spatially concentrated damage \cite{shen2016survivable}. Consequently, disaster scenarios demand recovery strategies capable of operating under severe spectrum scarcity, topological fragmentation and dynamically evolving failure patterns.
+\subsection{Elastic optical networks}
 
-To capture these characteristics, disasters in optical networks are commonly modeled as spatial events affecting all infrastructure elements within a predefined region. A widely adopted formulation represents the disaster zone as a circular area in which all nodes and adjacent links fail simultaneously \cite{zou2022drama, zou2025dramapro}. This abstraction, formalized for instance as $D(C_d, R_d)$ in \cite{zou2025dramapro}, provides a tractable foundation for analyzing restoration complexity, routing feasibility, spectral availability and the interplay between network geometry and physical reach limitations. Such models have been essential for understanding how correlated failures propagate through transport backbones and for assessing the impact of cascading congestion and overload phenomena, which often magnify the consequences of the initial disruption \cite{sahoo2022cooperation}.
+In an EON, the spectrum of each fiber is divided into narrow frequency slots, and a connection (lightpath) occupies a block of adjacent slots sized to its bit rate \cite{jinno2009spectrum}.
+Routing and spectrum assignment (RSA) must respect two constraints: \emph{contiguity}, the slots of a connection are adjacent, and \emph{continuity}, the same slots are used on every link of the path.
+The number of slots also depends on the modulation format, which is limited by the transmission reach: shorter paths can use more efficient formats and therefore fewer slots.
+First-Fit, which tries candidate paths in order and takes the lowest-indexed block of free slots that fits, is a common baseline because of its simplicity and low fragmentation.
 
-Traditional protection schemes—such as Dedicated Path Protection (DPP) and Shared Backup Path Protection (SBPP)—offer limited effectiveness under these conditions. Although robust for isolated outages, they become economically and operationally infeasible when large geographical areas are affected, as the amount of backup capacity required scales disproportionately with the size of the disaster region \cite{jinno2009spectrum}. For this reason, research has shifted toward dynamic post-disaster restoration, where the surviving network components are re-optimized in real time to re-establish connectivity or offer degraded service levels with minimal penalty \cite{zou2025dramapro}.
+\subsection{Disasters and the phases of resilience}
 
-Within this context, two major research directions have emerged to enhance disaster resilience.
-The first centers on algorithms for restoration in Elastic Optical Networks (EONs), where flexibility in modulation formats, spectrum allocation and regeneration can be exploited to recover a maximum number of connections despite severe resource limitations. A key contribution of this line is the introduction of the mitigation zone, a region surrounding the disaster area where lightpaths may undergo controlled degradation of bandwidth to alleviate spectral contention and improve recovery efficiency \cite{zou2022drama}. Algorithms such as DRAMA, DRAMA$+$ and DRAMA-PRO$+$ extend this concept with penalty-aware routing, adaptive modulation, load-sensitive cost functions and multi-class traffic treatment \cite{zou2022drama, zou2025dramapro}. These approaches demonstrate significant reductions in blocking and penalty under large-scale failures, showing that controlled service degradation can dramatically increase the number of recoverable demands.
+Disasters differ from isolated failures because they affect many geographically correlated components at once, which invalidates the independence assumptions behind classical protection schemes such as dedicated or shared backup path protection \cite{shen2016survivable,rak2021disaster}.
+A common abstraction models the disaster zone as a region in which all nodes and incident links fail simultaneously \cite{zou2022drama,zou2025dramapro}.
+Resilience is usually organized in phases: preparedness before the event, response during it and recovery afterwards \cite{rak2021disaster}.
+This work belongs to preparedness, more precisely to the interval between the warning and the failure.
 
-The second line of research approaches disaster recovery from an inter-domain cooperation perspective, focusing on coordination between datacenter providers (DCPs) and optical carriers. Because disasters often impair simultaneously the transport network and the datacenters that depend on it, isolated recovery strategies are insufficient. Works such as \cite{sahoo2022cooperation} demonstrate that cooperation—mediated through entities like the Emergency Shareable Exchange (ESE)—allows DCPs and carriers to share abstracted topological information, exchange pseudo-prices, and jointly decide how to allocate surviving resources. This coordinated approach substantially improves global recovery efficiency, reducing service loss by more than 70% compared to non-cooperative scenarios.
+\subsection{Post-disaster restoration in EONs}
 
-Together, these two research directions highlight that effective disaster recovery in optical and inter-datacenter networks requires both internal network intelligence, capable of flexible rerouting and degradation, and cross-domain coordination, capable of aligning restoration goals across administrative boundaries. The integration of these perspectives reveals a comprehensive view of how modern networks can remain operational under catastrophic events: by simultaneously optimizing physical-layer resource allocation and fostering cooperative strategies among the interconnected systems that rely on them.
+A large body of work addresses restoration after the failure.
+The DRAMA family of algorithms \cite{zou2022drama,zou2025dramapro} introduces a mitigation zone around the disaster area, in which surviving lightpaths can be degraded in a controlled way to free spectrum and increase the number of recovered demands, combined with penalty-aware routing and adaptive modulation.
+These algorithms assume a single operator with a global view of the network and act after the failure; our problem has several providers with local views and takes place before it.
 
-\section{Evaluating Contextual Alignment in Texts for Specialized Domains}
-In a previous study \cite{q&a-nogueira}, it was developed a specialized Q\&A dataset for the hemophilia domain using a systematic methodology. The research began by reviewing 20,000 scientific papers and randomly selecting 97 papers published between 2015-2022 that met specific criteria: papers available with a permissive license on PubMed Central. Then, critical information was extracted from the Introduction and Conclusion sections of these papers and GPT-4 was used to generate question-and-answer pairs similar to the Stanford Question Answering Dataset (SQuAD) format. The generated Q\&A pairs were then evaluated through a two-stage process: first, questions were scored on a 0-3 scale based on their quality and relevance, and second, answers to questions that scored '2' were assessed based on correctness, completeness, and conciseness. The evaluation was conducted by domain experts in bioinformatics specializing in hematology to ensure the reliability and quality of the dataset.
+\subsection{Cooperation across administrative domains}
 
-As mentioned, in the evaluation process, the specialists had to answer three specific questions, each requiring a yes or no response, regarding the quality and relevance of the answers: "Does the answer address the question?", "Is the answer incomplete?", and "Is the answer concise and direct?". In their assessments, experts disagreed on 31 answers for the first question, 12 for the second, and 39 for the third. These findings highlight areas where subjective judgment and interpretation played a role, emphasizing the complexity of achieving consensus in dataset evaluation.
+Disasters affect the transport network and the datacenters that depend on it at the same time, which has motivated cooperation between datacenter providers and optical carriers.
+Sahoo et al.\ \cite{sahoo2022cooperation} show that a mediator through which datacenter providers and carriers share abstracted topology information and jointly decide how to use surviving resources substantially improves recovery compared with non-cooperative operation.
+Our setting shares the idea that cooperation is mediated and limited in what it reveals, but differs in three ways: the actors are providers sharing one optical infrastructure, the action takes place in the warning window, and cooperation never transfers the right to allocate spectrum.
 
-Inspired by the difficulties of having human evaluation at all times during a study, such as the subjective variability, as exposed above, time consumption, and resource limitations associated with human assessments, this study will explore alternative evaluation forms. Specifically, it will compare different approaches, including Bag of Words, TF-IDF, Word2Vec, and the use of lightweight models like BERT, focusing on studies with limited computational power. This approach seeks to identify more efficient and accessible methods for scenarios with limited resources while maintaining the robustness and reliability of the analyses performed, focusing on analyzing the relevance of the questions, answers, and context generated by GPT.
+\subsection{Information disclosed by infrastructure owners}
 
-Since the results of these analyses may be influenced by the quality of the data generated by GPT and the specificity of the domain, this study will also analyze datasets compiled from posts within three distinct Reddit communities: r/PoliticalDiscussion, a forum dedicated to discussions about world politics; r/cancer, which features personal reports from individuals diagnosed with cancer; and r/AskTechnology, focused on technology-related topics. Based on the assumption that the title, description, and most upvoted comment typically share the same context, these datasets will undergo the same tests. The analysis will assess whether the methods can effectively recognize context in human conversations across diverse domains and determine their suitability for providing an objective evaluation of contextual alignment between two texts.
+Our mechanism assumes that the owner of the optical infrastructure discloses, for each link, how many providers use it.
+Related disclosures already exist.
+Carriers tag links with shared risk link groups (SRLGs) so that customers can request paths that do not share a fiber or duct, and their collection along a path is standardized \cite{rfc8001}.
+In spectrum-as-a-service offerings, the owner of an open line system knows every tenant of every link.
+A per-link tenant count, revealing a number but not identities, is a smaller disclosure than either; still, it is an assumption of this work and not an established practice.
 
+%======================================================================
+\section{Problem formulation}
+\label{sec:problem}
+%======================================================================
 
-\section{Experimental Setup}
-This study assumes that a high degree of semantic similarity indicates that the texts likely share the same context. By analyzing the semantic relationships between two texts, the study evaluates the alignment and coherence of the information. This assumption is particularly crucial for methods like Word2Vec and BERT, which capture deeper semantic relationships, as well as for TF-IDF and Bag of Words, which assess lexical and contextual overlaps. A strong similarity across these measures suggests that the texts convey consistent and related information, reinforcing their contextual alignment.
+\subsection{Physical network and spectrum}
 
-\begin{figure}[!h]
-	\centering 
-	\includegraphics[scale=0.23]{figures/fig1.png}
-	\caption[]{Methodology for Contextual Analysis and Evaluation - Hemophilia Dataset.}
-	\label{fig:pipe1}
-\end{figure}
+The physical topology is an undirected weighted graph $G=(V,E)$ with link length $\ell:E\to\mathbb{R}_{>0}$.
+Each link $e$ carries $F$ frequency slots, with occupancy vector $\mathbf{s}_e(t)\in\{0,1\}^F$.
 
-\begin{figure}[!h]
-	\centering 
-	\includegraphics[height=0.2\textwidth]{figures/fig2.png}
-	\caption[]{Methodology for Contextual Analysis and Evaluation - Reddit Datasets.}
-	\label{fig:pipe2}
-\end{figure}
+\begin{definition}[Spectral allocation]
+An allocation for a request $r$ of bit rate $b_r$ is a pair $(p,[f_\mathrm{s},f_\mathrm{e}])$, where $p$ is a simple path and
+\begin{equation}
+  n(r,p) = f_\mathrm{e}-f_\mathrm{s}+1 = \left\lceil \frac{b_r}{m(\ell(p))\,\Delta} \right\rceil
+\end{equation}
+contiguous slots are used on every link of $p$, with $\ell(p)=\sum_{e\in p}\ell(e)$, $\Delta$ the capacity of one slot at the most robust format, and the modulation factor
+\begin{equation}
+  m(\delta)=
+  \begin{cases}
+    4 & \delta\le 500\ \text{km},\\
+    3 & \delta\le 1000\ \text{km},\\
+    2 & \delta\le 2000\ \text{km},\\
+    1 & \text{otherwise.}
+  \end{cases}
+\end{equation}
+\end{definition}
 
-The initial dataset for the hemophilia domain consisted of 97 question-answer pairs, along with their corresponding contexts generated by GPT and original documents. After preprocessing to remove erroneous data and clear instances of hallucination, the dataset was reduced to 90 validated entries. This cleaning process involved manual reviews to ensure the quality of the dataset, particularly for the accuracy and relevance of the questions, answers, and contexts. The complete process is illustrated in Figure \ref{fig:pipe1}, detailing the workflow from the collection of articles to the evaluation stage.
+A request is accepted at time $t$ if such a pair exists with every slot free on every link of $p$ and no link of $p$ failed; otherwise it is blocked.
+There is no queueing and no preemption: an allocation is released only at the end of its holding time or when a link of its path fails.
 
-\begin{figure}[!h]
-	\centering 
-	\includegraphics[height=0.65\textwidth]{figures/example_reddit.png}
-	\caption[]{A r/AskTechnology post.}
-	\label{fig:reddit}
-\end{figure}
+\subsection{Providers as overlays}
 
-In addition to the hemophilia dataset, specialized datasets were constructed from three Reddit forums to evaluate the ability of the selected methods — Word2Vec, Bag of Words, TF-IDF, and BERT — to identify and indicate contextual alignment in human conversations within specific domains, as illustrated in Figure \ref{fig:pipe2}. The first dataset was compiled from r/PoliticalDiscussion, focusing on debates related to world politics. The second dataset was derived from r/cancer, containing personal reports and experiences shared by individuals diagnosed with cancer, offering insights into medical and emotional contexts. The third dataset was created from r/AskTechnology, which includes discussions centered on technology-related topics and inquiries.
+A set $\mathcal{I}=\{1,\dots,I\}$ of providers shares $G$.
+Provider $i$ operates an overlay $G_i=(V_i,E_i)$ with $V_i\subseteq V$ and $E_i\subseteq E$, and every request of $i$ must be routed inside $G_i$.
+Overlays overlap but decisions do not: provider $i$ never allocates spectrum on behalf of provider $j$.
+The spectrum of a link is a single resource shared by all providers that use it.
 
-A script was developed by the author to automate the selection process, ensuring that each post had both a description and at least one associated comment, guaranteeing the presence of sufficient contextual information for analysis. Each entry in the dataset included the post title, the broader context provided by the post’s content, and the most relevant comment associated with the post, as presented in Figure \ref{fig:reddit}. Following preprocessing and data cleaning, the r/PoliticalDiscussion dataset comprised 997 valid entries, r/cancer contained 887 valid entries, and r/AskTechnology had 728 valid entries, as referenced in Table \ref{entries}. Since the greater number of entries could influence the results, the Reddit datasets also went though a selection of random 90 posts, to enhance the comparison with the Hemophilia dataset.
+\begin{definition}[Link sharing]
+The number of providers that use link $e$ is
+\begin{equation}
+  \sigma(e) = \bigl|\{\,i\in\mathcal{I} : e\in E_i\,\}\bigr| .
+\end{equation}
+\end{definition}
 
-\begin{table}[!h]
-\caption{Number of Entries per Dataset.}
-\centering
-\begin{tabular}{|c|c|}
-\hline
-\textbf{Dataset} & \textbf{Number of Entries} \\ \hline
-\textit{Hemophilia} & 90 \\ \hline
-\textit{r/PoliticalDiscussion} & 997 \\ \hline
-\textit{r/cancer} & 887 \\ \hline
-\textit{r/AskTechnology} & 728 \\ \hline
+\subsection{Disaster and timeline}
+
+A non-empty set of nodes $V_d\subseteq\bigcap_{i}V_i$ fails at time $t_d$, together with every incident link.
+Choosing $V_d$ inside the intersection of the overlays makes the threat relevant to every provider.
+Provider $i$ discovers the threat at its own time $\tau_i<t_d$, without synchronization with the others, and its warning window is $[\tau_i,t_d)$.
+Before $\tau_i$, it operates normally; from $\tau_i$ on, it switches to disaster-aware routing and starts migrating; after $t_d$, whatever was not migrated is lost.
+
+\subsection{Migration}
+
+Provider $i$ holds critical data at $s_i\in V_d$ and migrates it to a destination $d_i\in V_i\setminus V_d$.
+In our instances, $d_i$ is the node of $G_i$ farthest from $V_d$ in hops, which keeps the data away from a possible extension of the damaged area.
+Let $D_i$ be the volume to migrate and $M_i(t)$ the volume carried by migration requests accepted until $t$.
+Migration requests originate at $s_i\in V_d$, so they must use the part of $G_i$ that is about to fail, while background traffic that must survive the failure should avoid it.
+Both compete for the spectrum of the links of $G_i$ that leave $V_d$, which are also typically shared with other providers.
+
+\subsection{Independence and cooperation}
+
+\begin{definition}[Independent action]
+Each provider is a separate agent.
+There is no central allocator and no joint allocation over $\bigcup_i G_i$.
+The decisions of $i$ depend only on $G_i$, on the occupancy of the links it uses and on the information it holds.
+\end{definition}
+
+\begin{definition}[Cooperation]
+A subset $K\subseteq\mathcal{I}$ is \emph{cooperating} if its members share information about their overlays and migrations.
+Members of $\mathcal{I}\setminus K$ keep a strictly local view.
+Cooperation does not merge overlays and does not transfer the right to allocate spectrum: each $i\in K$ keeps acting only on $G_i$.
+A provider joins the cooperation at its discovery time $\tau_i$.
+\end{definition}
+
+\subsection{Metrics}
+
+Let $\mathcal{R}_\mathrm{n}$ and $\mathcal{R}_\mathrm{m}$ be the background and migration requests.
+Blocking rates and availability are
+\begin{equation}
+  B_\mathrm{n}=\frac{|\{r\in\mathcal{R}_\mathrm{n}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{n}|},\qquad
+  B_\mathrm{m}=\frac{|\{r\in\mathcal{R}_\mathrm{m}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{m}|},\qquad
+  A=1-B .
+\end{equation}
+Availability here means one minus the blocking rate, not classical two-terminal availability.
+The migrated fraction of provider $i$ and its mean over a set of providers $S$ are
+\begin{equation}
+  \eta_i=\min\!\left(1,\frac{M_i(t_d)}{D_i}\right),\qquad
+  \eta(S)=\frac{1}{|S|}\sum_{i\in S}\eta_i .
+\end{equation}
+We report $\eta(\mathcal{I})$ for the whole network, $\eta(K)$ for the cooperating providers and $\eta(\mathcal{I}\setminus K)$ for the others, together with the background blocking of each group.
+
+\subsection{Problem statement}
+
+\begin{problem}[Migration in the warning window]
+\label{prob:main}
+\hfill
+\begin{description}[leftmargin=1.6cm,style=nextline]
+  \item[Given]
+  a physical graph $G=(V,E)$ with $F$ slots per link;
+  providers $\mathcal{I}$ with overlays $G_i$;
+  a disaster set $V_d\subseteq\bigcap_i V_i$ failing at $t_d$;
+  for each provider, a volume $D_i$ at $s_i\in V_d$, a destination $d_i$ and a discovery time $\tau_i<t_d$;
+  background traffic on every overlay;
+  contiguous and continuous spectrum allocation with distance-dependent modulation.
+  \item[Find]
+  for each provider, independently and from $\tau_i$ on, path and spectrum allocations in $G_i$ for its migration and its background traffic; and a cooperating subset $K$ that exchanges information.
+  \item[Such that]
+  the migrated fraction $\eta(\mathcal{I})$ is maximized, cooperating providers migrate at least as much as they would alone, and the background blocking $B_\mathrm{n}$ is contained.
+  \item[Under]
+  independent action, independent discovery, local views by default, information-only cooperation and a single spectrum per link shared by all of its users.
+\end{description}
+\end{problem}
+
+%======================================================================
+\section{Cooperative corridor protection}
+\label{sec:mechanism}
+%======================================================================
+
+Migration and background traffic compete on the links that leave the disaster site.
+A provider can favor its own migration by keeping its own background traffic out of part of the spectrum on its migration path.
+If another provider also uses those links, however, the spectrum freed this way may simply be taken by the other provider's background traffic, which no one can restrict.
+Protection is therefore only worthwhile on links where every user is willing to restrict itself.
+
+\subsection{Knowledge model and exclusive links}
+
+We assume that the infrastructure owner discloses $\sigma(e)$ for every link: a count, not the identities of the tenants.
+Cooperating providers share their overlays, so for each link they know how many of \emph{them} use it.
+
+\begin{definition}[Link exclusive to a group]
+A link $e$ is exclusive to a group $S\subseteq\mathcal{I}$ if
+\begin{equation}
+  \bigl|\{\,i\in S : e\in E_i\,\}\bigr| = \sigma(e) > 0 ,
+\end{equation}
+that is, every provider that uses $e$ belongs to $S$.
+\end{definition}
+
+A single provider can prove exclusivity only for the links it uses alone ($\sigma(e)=1$).
+A cooperating group can additionally prove it for links shared only among its members, and the number of such links grows with the group.
+
+\subsection{Protected links}
+
+The migration corridor of a provider is the set of links of its first candidate migration paths from $s_i$ to $d_i$ (its main path, or its first three paths, depending on the variant).
+Whenever a provider joins the cooperation, the set of protected links is recomputed: a link is protected if it lies on the corridor of some current member of $K$ and is exclusive to $K$.
+Protection is active only until $t_d$ and never applies to migration requests.
+Because a protected link is used only by members of $K$, every background request that crosses it belongs to a cooperator: each cooperator restricts only its own traffic, consistently with independent action.
+
+\subsection{Reservation size}
+
+On a protected link, background requests may not use the top $R_e(t)$ slots, which remain available to migration.
+Background requests whose only free blocks lie inside the reserved part are blocked or take another candidate path.
+Two rules are studied.
+
+\paragraph{Fixed reservation.}
+$R_e = \lceil \rho F\rceil$ for a fixed fraction $\rho$, on the links of the first three migration paths.
+
+\paragraph{Demand-driven reservation.}
+Each owner $o$ of a protected link reserves, on its main path only, the slots it still needs to finish before the failure:
+\begin{equation}
+  R_o(t) = \left\lceil \frac{h\,\bigl(D_o-M_o(t)\bigr)}{(t_d-t)\; m_o\,\Delta} \right\rceil ,
+  \qquad
+  R_e(t)=\min\Bigl(F,\ \sum_{o \in \mathrm{owners}(e)} R_o(t)\Bigr),
+\end{equation}
+where $h$ is the mean holding time of a request and $m_o$ the modulation factor of the main path.
+The reservation shrinks to zero when the owner finishes and grows if it falls behind.
+
+\subsection{Individual protection}
+
+To separate the effect of cooperation from the effect of knowing $\sigma(e)$, we also evaluate \emph{individual protection}: every provider that has reached its discovery time protects the links of its own corridor that it uses alone, with the same reservation rule, whether or not it cooperates.
+
+%======================================================================
+\section{Simulation setup}
+\label{sec:setup}
+%======================================================================
+
+\subsection{Simulator}
+
+We use a discrete-event simulator written in Python on SimPy and NetworkX.
+Traffic is generated before the simulation and stored with the scenario, so every variant of an experiment processes exactly the same requests at the same times.
+Given a scenario and a variant, the simulation is deterministic.
+
+\subsection{Network and spectrum}
+
+The physical topology is a 24-node, 43-link US backbone with link lengths between 250 and 2600~km (median 1000~km).
+Each link has $F=200$ slots and $\Delta=12.5$~Gb/s per slot at modulation factor 1.
+The modulation factor of a path follows the distance thresholds of Section~\ref{sec:problem}; with these link lengths, most paths use factor 1 or 2.
+Every provider precomputes, for each pair of nodes of its overlay, the $k$ shortest paths by length ($k=10$ for disaster-aware routing).
+
+\subsection{Providers}
+
+$I=5$ providers are generated as random connected overlays of the topology; all overlays share at least one node and together cover every node.
+In the reference scenario most links are used by one or two providers: 12 links have $\sigma(e)=1$, 21 have $\sigma(e)=2$, 4 have $\sigma(e)=3$, 5 have $\sigma(e)=4$ and one link is unused.
+
+\subsection{Traffic}
+
+Background requests arrive as a Poisson process over a 1200~s horizon at a rate chosen for a target network utilization of 75\%, about 156 requests per second (about $1.9\times 10^5$ requests per scenario).
+Each request belongs to one provider and has its source and destination inside that provider's overlay; providers with larger and less shared overlays receive a larger share of the requests.
+Bit rates are drawn uniformly from $\{100,150,\dots,400\}$~Gb/s and holding times from a normal distribution with mean 1~s and standard deviation 0.1~s.
+
+\subsection{Disaster and migration}
+
+The disaster is a single node chosen in the intersection of the overlays, which fails at $t_d\approx 600$~s ($\pm5\%$) and stays down for about 200~s.
+Each provider discovers the threat at $\tau_i\approx 300$~s ($\pm15\%$).
+Its datacenter is at the failing node and its destination is the farthest node of its overlay in hops.
+From $\tau_i$ until $t_d$, the provider issues migration requests from $s_i$ to $d_i$ at a constant mean rate (about 15--17 requests per second per provider in the reference scenario), with the same bit-rate and holding-time distributions as background traffic, and the volume to migrate is $D_i\approx 4.4\times 10^5$~Gb.
+Migration requests keep being issued until $t_d$ even after $D_i$ is reached, so $\eta_i$ is capped at~1.
+
+\subsection{Routing}
+
+Before $\tau_i$, provider $i$ routes with First-Fit over the precomputed paths of its overlay.
+From $\tau_i$ on, it switches to disaster-aware First-Fit: background requests use paths that avoid $V_d$, and migration requests, which originate in $V_d$, use the shortest paths of the full overlay.
+Candidate paths are tried in order of length, and the first one with a free contiguous block large enough is used.
+Corridor protection, when enabled, removes the reserved slots of protected links from the blocks available to background requests.
+
+\subsection{Compared variants}
+
+\begin{center}
+\small
+\begin{tabular}{@{}lll@{}}
+\toprule
+Variant & Protection & Depends on $K$ \\
+\midrule
+First-Fit & none, not disaster-aware & no \\
+No reservation (reference) & none, disaster-aware First-Fit & no \\
+Fixed $\rho$, cooperative & links exclusive to $K$, $\rho\in\{10,25,40,55,70,85\}\%$ & yes \\
+Fixed $\rho$, individual & links used by one provider only & no \\
+Demand-driven, cooperative & links exclusive to $K$, main path & yes \\
+Demand-driven, individual & links used by one provider only, main path & no \\
+\bottomrule
 \end{tabular}
-\label{entries}
-\end{table}
+\end{center}
 
-The analysis involved processing pairs of texts through methods such as BoW, TF-IDF, Word2Vec, and BERT to evaluate their semantic similarity and determine whether they shared the same context. For the hemophilia dataset, this included evaluating the alignment between questions, answers, GPT-4-generated contexts, and the original source texts. For the Reddit datasets, the analysis focused on comparing the title of a post with its first comment, as well as the broader context of the post with the same comment. Across all datasets, the evaluation aimed to assess coherence, relevance, and specificity, leveraging semantic similarity as a key indicator of contextual alignment.
+\subsection{Experimental design}
 
-\begin{table}[!h]
-\caption{Pairwise Comparisons in Hemophilia and Reddit Datasets.}
-\centering
-\begin{tabular}{>{\raggedright\arraybackslash}p{0.5cm}|>{\raggedright\arraybackslash}p{8cm}}
-\hline
-\textbf{Dataset}    & \textbf{Pairwise Comparisons}                               \\ \hline
-\textit{Hemophilia} & 
-1. Question $\leftrightarrow$ GPT-4 Context \\ 
-                    & 2. Answer $\leftrightarrow$ GPT-4 Context \\ 
-                    & 3. GPT-4 Context $\leftrightarrow$ Original Document \\ 
-                    & 4. Question $\leftrightarrow$ Original Document \\ 
-                    & 5. Answer $\leftrightarrow$ Original Document \\ \hline
-\vtop{\hbox{\textit{r/PoliticalDiscussion}}\hbox{\textit{r/cancer}}\hbox{\textit{r/AskTechnology}}} 
-                    & \vtop{\hbox{1. Title $\leftrightarrow$ Comment} \hbox{2. Post Content $\leftrightarrow$ Comment}} \\ \hline
-\end{tabular}
-\label{pairwise_comparisons}
-\end{table}
+For each base scenario, every variant is evaluated for all $2^I=32$ cooperating subsets $K\subseteq\mathcal{I}$, from no cooperation to full cooperation.
+The order in which members join is fixed by their discovery times, so subsets and not permutations are enumerated.
+Variants that do not depend on $K$ produce exactly the same simulation for every subset; they are run once and their per-provider results are relabeled for each $K$, which we verified by running one of them for both $K=\emptyset$ and $K=\mathcal{I}$.
+Every variant is compared with the reference for the same scenario and the same $K$, so that differences reflect the protection mechanism only.
+The results reported here use \todo{1 / 10} base scenario(s).
 
-The process began with the vectorization of all elements in all datasets: titles, contexts, and comments for the Reddit datasets, as well as questions, answers, contexts, and source texts for the hemophilia dataset, as described in Table \ref{pairwise_comparisons}. In Bag of Words, a preprocessing step was applied to clean the data by removing stop words, punctuation, and other irrelevant tokens and the training was made with Google's model. After cleaning, words were represented as continuous vectors in a semantic space, capturing their relationships based on co-occurrence patterns. Semantic alignment between text pairs was then evaluated using similarity measures, such as cosine similarity.
+%======================================================================
+\section{Results}
+\label{sec:results}
+%======================================================================
 
-Bag of Words created sparse vectors to represent word frequency distributions for each element in the datasets. This method focused on identifying lexical overlap and comparing word frequency across text pairs, such as titles and comments or questions and contexts. By highlighting direct word-level matches, Bag of Words provided a straightforward measure of textual alignment.
+\todo{Pending the final runs without cooperative weights (Experiment\_final.ipynb). Planned content:}
+\begin{itemize}[leftmargin=1.2em]
+  \item \todo{Disaster-aware First-Fit vs First-Fit: migrated fraction and blocking.}
+  \item \todo{Migrated fraction of all providers vs $|K|$ for each reservation rule, cooperative and individual, as gains over the reference.}
+  \item \todo{Members of $K$ vs providers outside $K$: migrated fraction and change in background blocking.}
+  \item \todo{Where cooperative protection overtakes individual protection, and its relation to the number of links each can prove exclusive.}
+  \item \todo{Fixed vs demand-driven reservation: migration gain per point of background blocking.}
+\end{itemize}
 
-TF-IDF extended the analysis by emphasizing the significance of less frequent, contextually important words in the texts. By calculating a weighted score for each term, TF-IDF highlighted words that were particularly representative of the content, such as unique terms in questions or comments. This allowed for a more detailed evaluation of information specificity and its relevance to the associated context.
+%======================================================================
+\section{Limitations}
+\label{sec:limitations}
+%======================================================================
 
-Finally, BERT was used for deeper semantic comparisons across the datasets. Leveraging its advanced understanding of sentence-level and paragraph-level context, BERT produced dense embeddings that captured nuanced semantic relationships between text pairs. These embeddings enabled precise evaluations of coherence and alignment, revealing subtle connections between questions and contexts or titles and comments across both datasets.
+\begin{itemize}[leftmargin=1.2em]
+  \item The tenant count $\sigma(e)$ is assumed to be disclosed by the infrastructure owner; results with $\sigma(e)$ are an upper bound for providers that would have to infer it, for example from spectrum occupancy.
+  \item The disaster affects a single node; with a regional disaster, more links leaving the damaged area would be shared and fewer would be provably exclusive.
+  \item Destinations are the farthest nodes of each overlay, which forces long paths with the least efficient modulation; closer destinations would need fewer slots but less distance from the threat.
+  \item One topology and a single traffic model are used. \todo{number of base scenarios.}
+\end{itemize}
 
-\section{Results and analysis}
-Considering the previously detailed evaluation process, the results for the cosine similarity of the datasets are displayed in this section. The graphs present the results for each of the datasets, illustrating the similarity between questions, answers, GPT-4-generated contexts, and original texts or between the title, content, and most relevant comment. The data is visually organized using colors to represent different types of similarity, such as question-to-GPT-generated context, while the groups are divided by method, such as BERT, providing a clear and structured visualization of the results. 
-
-\begin{figure}[!h]
-	\centering 
-	\includegraphics[height=0.65\textwidth]{figures/hemophilia.png}
-	\caption[]{Average Similarity Score for the Hemophilia Dataset.}
-	\label{fig:hemophilia}
-\end{figure}
-
-Onto an analysis of the suitability of the questions, answers, and contexts generated by GPT, presented in Figure \ref{fig:hemophilia}, the results from the methods studied provide insights into their alignment with the original documents. High similarity scores achieved by methods like BERT and Word2Vec suggest that the generated content is semantically consistent with the source material. This indicates that, for the most part, the questions and answers produced are contextually grounded in the original documents.
-
-However, the differences in performance across methods highlight varying levels of reliability. While BERT demonstrates a strong and nuanced ability to capture contextual alignment, methods like TF-IDF and Bag of Words yield noticeably weaker scores, reflecting limitations in their capacity to capture deeper lexical and semantic relationships within the generated content. 
-
-Focusing on the similarity between the GPT-generated context and the original documents, the results indicate a high similarity scores, consistently above 0.6 score, which suggests a strong alignment between the generated contexts and the source documents. This implies that the generated contexts likely preserve the semantic and informational content of the original texts, supporting the inference that they are within the same context. While Word2Vec demonstrates strong similarity scores across various metrics, it does not outperform BERT, only coming close in the context to original documents metric, which is expected, since they supposedly have more context in common.
-
-When comparing the questions and answers with the GPT-generated context and the original documents, the results provide additional insights into the quality and alignment of the generated content. The similarity scores indicate a stronger alignment between the questions and answers and the GPT-generated context, which is expected given that the generated context is significantly shorter and more focused compared to the original documents. This conciseness reduces semantic variability, making it easier for the questions and answers to maintain a high level of similarity.
-
-Additionally, it is notable that the similarity scores for answers, when compared to both the GPT-generated context and the original documents, are consistently higher than those for questions. This trend is logical, as answers typically contain more direct information aligned with the context or the document, reflecting explicit content that is easier to match semantically. In contrast, questions often introduce more variability due to their interrogative structure, which may not always align as closely with the phrasing or content of the source material.
-
-These patterns suggest that the GPT-generated context effectively acts as a semantic bridge, simplifying and concentrating key information from the original documents, thus facilitating a closer alignment with the crafted questions and answers. The stronger alignment of answers further reinforces the coherence between the generated content and the source material.
-
-\begin{figure}[!h]
-    \centering 
-    \includegraphics[height=0.65\textwidth]{figures/political.png}
-    \caption[]{Average Similarity Score for the r/PoliticalDiscussion Dataset.}
-    \label{fig:political}
-\end{figure}
-
-The graph presented in Figure \ref{fig:political} again reveals that BERT and Word2Vec stand out, with BERT consistently achieving high similarity scores around 0.91-0.92 across all metrics. Word2Vec also shows strong performance, particularly in the full dataset, where it reaches 0.72 for similarity between content and comments. In contrast, Bag of Words and TF-IDF keep showing significantly lower performance, with average similarity scores ranging from 0.08 to 0.14. Despite their consistency across different dataset sizes, these models struggle to handle the complexity of political discussion data, highlighting the superiority of modern NLP techniques.
-
-
-\begin{figure}[!h]
-    \centering 
-    \includegraphics[height=0.65\textwidth]{figures/cancer.png}
-    \caption[]{Average Similarity Score for the r/cancer Dataset.}
-    \label{fig:cancer}
-\end{figure}
-
-Figure \ref{fig:cancer} presents the results of the most diverse dataset, encompassing both personal reports from cancer patients and specialized medical terminology, which might explain why this dataset presents the largest gap between title-comment and content-comment similarity scores for Word2Vec, when compared to other datasets. This difference may be attributed, as mentioned, to the nature of the titles, which often summarize posts in just a few words—frequently conveying brief goodbyes or diagnostic statements—while the comments delve deeper into personal experiences, providing richer context that aligns more closely with the body of the post. BERT, however, maintains once again a strong performance with stable similarity scores around 0.91-0.92 across all metrics and sample sizes, suggesting its robust capacity to handle heterogeneous data. In contrast, Bag of Words and TF-IDF continue to underperform, with scores between 0.06 and 0.12, struggling to capture the nuanced semantic relationships introduced by the dataset's variety. Overall, the diverse nature of the cancer dataset amplifies performance disparities, but keep highlighting the adaptability of BERT.
-
-\begin{figure}[!h]
-    \centering 
-    \includegraphics[height=0.65\textwidth]{figures/asktech.png}
-    \caption[]{Average Similarity Score for the r/AskTechnology Dataset.}
-    \label{fig:asktech}
-\end{figure}
-
-Finally, Figure \ref{fig:asktech} presents the results for the AskTechnology dataset. BERT continues to demonstrate strong and consistent performance, with similarity scores around 0.89-0.91 across both the full dataset and the 90 entries sample, reflecting its robustness in handling specialized content. Word2Vec follows, with moderate scores around 0.5 to 0.6, while Bag of Words and TF-IDF maintain their pattern of lower performance, with similarity scores ranging from 0.09 to 0.12, underscoring their limitations in capturing complex semantic relationships within technical content. 
-
-Despite the thematic differences between r/AskTechnology, r/Cancer, and r/PoliticalDiscussion, the Reddit datasets exhibit similarities in their performance trends. Notably, the results for all three datasets remain  mostly consistent between the full dataset and the 90-entry sample, highlighting the robustness of the models, particularly BERT, in maintaining high performance regardless of dataset size. Some fluctuations are observed when reducing the dataset to 90 entries, especially with methods like Bag of Words, Word2Vec, and TF-IDF, however, they are very small and barely notable. These fluctuations occur due to the increased sensitivity of these models to smaller sample sizes, as they rely heavily on statistical patterns and frequency-based representations that may not be as stable in limited datasets. In contrast, BERT's contextualized embeddings allow it to generalize better, minimizing performance variations even with fewer data points.
-
-These results provide evidence regarding the context alignment capabilities of the evaluated methods, particularly BERT. The consistent high performance of BERT across different datasets and sample sizes suggests that it is highly effective at capturing semantic relationships that align closely with the context of Reddit discussions. This indicates that BERT can reliably identify correlations between titles, content, and comments, even when dealing with varied thematic content, from technical discussions to personal narratives and political debates. The stability of BERT's performance also implies that the Reddit datasets themselves exhibit a high degree of context alignment, where comments are generally relevant to the original posts. In contrast, the weaker performance of Bag of Words and TF-IDF, especially in datasets with more complex or nuanced content, highlights their limited capacity to capture deeper contextual relationships. This disparity underscores the importance of context-aware models like BERT in effectively analyzing and understanding the intricate dynamics of online discussions.
-
-When comparing the results from the Hemophilia dataset to the Reddit datasets, its possible to notice some patterns. In the Hemophilia dataset, BERT and Word2Vec maintain high similarity scores, mirroring the strong performance observed in the Reddit datasets. However, the Hemophilia dataset shows a more balanced distribution of similarity scores across different metrics, particularly for Bag of Words and TF-IDF, which perform relatively better compared to their performance in the Reddit datasets. This could be attributed to the more structured and specialized nature of the Hemophilia data, where lexical overlaps and simpler semantic relationships are more prevalent. In contrast, the Reddit datasets, characterized by diverse, unstructured, and informal language, emphasize the superior performance of context-aware models like BERT, which consistently outperforms all other methods with similarity scores above 0.9. In general, considering the results from the Reddit datasets, this analysis suggests that BERT could be used as an alternative method to capture context, given its high similarity scores. Consequently, it can be inferred that the LLM-produced content in the Hemophilia dataset is well-aligned with its intended context.
-
+%======================================================================
 \section{Conclusion}
-In conclusion, this study demonstrates the potential of semantic similarity methods to evaluate contextual alignment, offering a promising alternative to the traditional reliance on human analysis. This shift towards automated analysis has the potential to streamline research processes, making them not only faster but also more consistent and less reliant on subjective interpretation, paving the way for broader applications in similar studies.
+\label{sec:conclusion}
+%======================================================================
 
-The comparative analysis of semantic similarity methods across all datasets reveals clear distinctions in their effectiveness for capturing contextual alignment. BERT consistently outperforms other models, demonstrating robust performance across all datasets, including highly variable Reddit discussions and structured scientific texts in the Hemophilia dataset. Its ability to capture nuanced semantic relationships at both sentence and paragraph levels makes it a reliable tool for evaluating the contextual alignment of generated content with source materials.
+\todo{after the results.}
 
-Word2Vec, while moderately effective—particularly in structured datasets—falls short in handling more complex and varied text, as observed in Reddit discussions. In contrast, Bag of Words and TF-IDF, which rely on lexical overlap rather than deep semantic understanding, consistently underperformed, demonstrating their limitations in tasks requiring contextual awareness.
+\bibliographystyle{plain}
+\bibliography{references}
 
-In contrast, simpler methods like Bag of Words and TF-IDF consistently underperform, with low similarity scores across all datasets. Their reliance on lexical overlap and word frequency limits their ability to capture deeper semantic relationships, especially in complex, domain-specific, or conversational contexts. Despite their computational efficiency, these methods are less suitable for tasks that require fine-grained semantic evaluation, particularly when assessing the coherence of GPT-generated content.
-
-Dataset-specific trends indicate that structured, domain-specific texts, such as the Hemophilia dataset, allow for slightly better performance of simpler methods, but as text complexity increases, as seen in Reddit discussions, only advanced contextual models like BERT maintain reliability. Additionally, the higher similarity scores for generated answers compared to questions suggest that while GPT-generated responses maintain coherence, extra validation might be necessary for questions to ensure alignment with source content.
-
-Notably, the stronger alignment of GPT-generated answers compared to questions highlights the inherent differences in how each aligns with source content. Answers, often more explicit and context-bound, exhibit higher semantic similarity, while questions introduce variability due to their interrogative structure. This suggests that while GPT-generated content maintains strong coherence, additional validation may be required for generated questions to ensure precise contextual alignment.
-
-Overall, these findings demonstrate that BERT is the only method that consistently delivers promising results in evaluating the quality and contextual alignment in both GPT-generated content and human-based conversations. However, its consistently high similarity scores should be interpreted with caution, as they may indicate a tendency to overgeneralize rather than deeply capture contextual nuances. Future studies should investigate this further by incorporating qualitative analysis or human-in-the-loop evaluations to verify whether BERT’s assessments truly reflect contextual fidelity.
-
-To complement this analysis, integrating advanced evaluation frameworks such as RAGAS and DEEPEVAL presents a compelling direction for future work. While these frameworks require higher computational resources, they offer the potential for more objective and comprehensive assessments across diverse topics. By leveraging sophisticated evaluation techniques—including refined semantic and contextual alignment metrics—these frameworks could enhance the accuracy and reliability of LLM evaluations. Their incorporation into automated evaluation pipelines could help address potential limitations observed in BERT, ensuring a more nuanced and scalable approach to assessing LLM-generated content. Further exploration of these frameworks in varied domains could provide deeper insights into the strengths and weaknesses of different evaluation methods, ultimately refining and advancing LLM assessment strategies.
-\bibliographystyle{splncs04}
-\bibliography{refs}
 \end{document}

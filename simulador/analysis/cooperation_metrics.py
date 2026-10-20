@@ -107,6 +107,7 @@ def metricas_cooperacao(
 
     b_n = _taxa_bloqueio(normais)
     b_m = _taxa_bloqueio(migracoes)
+    src_normais = normais["src_isp_index"].astype(int)
     resumo = {
         "K": rotulo_cooperantes(k_set),
         "k": len(k_set),
@@ -119,6 +120,9 @@ def metricas_cooperacao(
         "eta_K": eta_k,
         "eta_isolados": eta_iso,
         "Gamma": gamma,
+        # Background blocking of K members vs isolated ISPs (cost of protection)
+        "B_n_K": _taxa_bloqueio(normais[src_normais.isin(k_set)]),
+        "B_n_isolados": _taxa_bloqueio(normais[src_normais.isin(isolados)]),
         "n_normais": len(normais),
         "n_migracao": len(migracoes),
         "t_d": t_d,
@@ -137,7 +141,71 @@ def metricas_cooperacao(
                 "tau_i": taus.get(isp_id, math.nan),
                 "eta_i": etas.get(isp_id, math.nan),
                 "B_m_i": _taxa_bloqueio(mig_i),
+                "B_n_i": _taxa_bloqueio(normais[src_normais == isp_id]),
+                "n_normais_i": int((src_normais == isp_id).sum()),
                 "n_migracao_i": len(mig_i),
             }
         )
     return resumo, por_isp
+
+
+def expandir_para_todos_k(
+    resultado: dict[str, Any], isp_ids: Iterable[int]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Rebuild summary and per-ISP rows for every K from one K-independent run.
+
+    Some variants do not depend on who cooperates (no protection, individual
+    protection, First-Fit) once cooperative weights are off: the simulation is
+    deterministic and K changes nothing. They run once (K = empty set) and this
+    rebuilds, for every subset K, the fields that only depend on the labels:
+    K, k, em_K, eta_K, eta_isolados, Gamma, B_n_K, B_n_isolados.
+
+    Args:
+        resultado: dict returned by run_cooperation_experiment (one run)
+        isp_ids: all ISP ids of the scenario
+
+    Returns:
+        (summaries, per_isp) with one summary per subset K.
+    """
+    from itertools import combinations
+
+    ids = sorted(isp_ids)
+    base = resultado["summary"]
+    linhas_isp = {row["isp_id"]: row for row in resultado["per_isp"]}
+
+    def _bn(grupo: set[int]) -> float:
+        n = sum(linhas_isp[i].get("n_normais_i", 0) for i in grupo)
+        if not grupo or n == 0:
+            return math.nan
+        return (
+            sum(
+                linhas_isp[i]["B_n_i"] * linhas_isp[i].get("n_normais_i", 0)
+                for i in grupo
+            )
+            / n
+        )
+
+    resumos, por_isp = [], []
+    for k in range(len(ids) + 1):
+        for comb in combinations(ids, k):
+            k_set, fora = set(comb), set(ids) - set(comb)
+            rotulo = rotulo_cooperantes(k_set)
+            eta_k = _media([linhas_isp[i]["eta_i"] for i in k_set])
+            eta_fora = _media([linhas_isp[i]["eta_i"] for i in fora])
+            resumos.append(
+                {
+                    **base,
+                    "K": rotulo,
+                    "k": k,
+                    "eta_K": eta_k,
+                    "eta_isolados": eta_fora,
+                    "Gamma": eta_k - eta_fora if k_set and fora else math.nan,
+                    "B_n_K": _bn(k_set),
+                    "B_n_isolados": _bn(fora),
+                }
+            )
+            por_isp.extend(
+                {**linhas_isp[i], "K": rotulo, "k": k, "em_K": i in k_set}
+                for i in ids
+            )
+    return resumos, por_isp

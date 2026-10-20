@@ -121,3 +121,80 @@ def test_weighted_router_keeps_isp_path_order(monkeypatch) -> None:
 
     assert habil
     assert [d["caminho"] for d in ordem] == [[0, 1, 2], [0, 3, 2]]
+
+
+def test_fixed_modulation_overrides_every_path() -> None:
+    import networkx as nx
+
+    from simulador.config.simulation_settings import ScenarioConfig
+    from simulador.entities.isp import ISP
+    from simulador.entities.scenario import Scenario
+
+    grafo = nx.Graph()
+    grafo.add_edge(0, 1, weight=300)  # short: distance-based factor 4
+    grafo.add_edge(1, 2, weight=2500)  # long: distance-based factor 1
+    isp = ISP(0, [0, 1, 2], [(0, 1), (1, 2)])
+    isp.computar_caminhos_internos(grafo)
+    isp.computar_caminhos_internos_durante_desastre(grafo, node_desastre=99)
+    assert isp.caminhos_internos_isp[0][1][0]["fator_de_modulacao"] == 4
+
+    topologia = type(
+        "T",
+        (),
+        {
+            "caminhos_mais_curtos_entre_links": {
+                0: {1: [{"caminho": [0, 1], "distancia": 300, "fator_de_modulacao": 4}]}
+            },
+            "caminhos_mais_curtos_entre_links_durante_desastre": {},
+        },
+    )()
+    cenario = Scenario(topologia, [isp], desastre=None)
+    cenario.config = ScenarioConfig()
+
+    cenario.aplicar_modulacao_fixa(1)
+
+    fatores = [
+        info["fator_de_modulacao"]
+        for caminhos in (
+            isp.caminhos_internos_isp,
+            isp.caminhos_internos_isp_durante_desastre,
+            isp.weighted_caminhos_internos_isp_durante_desastre,
+            topologia.caminhos_mais_curtos_entre_links,
+        )
+        for destinos in caminhos.values()
+        for lista in destinos.values()
+        for info in lista
+    ]
+    assert fatores and set(fatores) == {1}
+    assert isp._calcular_fator_modulacao(100) == 1  # paths recomputed later too
+    assert cenario.config.fator_modulacao_fixo == 1
+
+    cenario.aplicar_modulacao_fixa(None)  # back to distance-based
+    assert isp.caminhos_internos_isp[0][1][0]["fator_de_modulacao"] == 4
+    assert isp._calcular_fator_modulacao(100) == 4
+
+
+def test_expand_k_independent_run_to_every_subset() -> None:
+    from simulador.analysis.cooperation_metrics import expandir_para_todos_k
+
+    resultado = {
+        "summary": {"K": "K_none", "k": 0, "eta_todos": 0.6, "B_n": 0.25},
+        "per_isp": [
+            {"isp_id": 0, "eta_i": 1.0, "B_n_i": 0.1, "n_normais_i": 100},
+            {"isp_id": 1, "eta_i": 0.5, "B_n_i": 0.4, "n_normais_i": 300},
+            {"isp_id": 2, "eta_i": 0.3, "B_n_i": 0.2, "n_normais_i": 100},
+        ],
+    }
+    resumos, por_isp = expandir_para_todos_k(resultado, [0, 1, 2])
+
+    assert len(resumos) == 8 and len(por_isp) == 24
+    por_k = {r["K"]: r for r in resumos}
+    assert por_k["K_0-1"]["eta_K"] == 0.75
+    assert por_k["K_0-1"]["eta_isolados"] == 0.3
+    assert math.isclose(por_k["K_0-1"]["Gamma"], 0.45)
+    # pooled by request count: (0.1 * 100 + 0.4 * 300) / 400
+    assert math.isclose(por_k["K_0-1"]["B_n_K"], 0.325)
+    assert por_k["K_0-1"]["eta_todos"] == 0.6  # copied from the run
+    assert math.isnan(por_k["K_none"]["eta_K"])
+    assert math.isnan(por_k["K_0-1-2"]["Gamma"])
+    assert [r["em_K"] for r in por_isp if r["K"] == "K_2"] == [False, False, True]

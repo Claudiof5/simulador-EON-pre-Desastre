@@ -338,6 +338,14 @@ class ScenarioGenerator:
                 config=variant_config,
             )
 
+        if not getattr(variant_config, "pesos_cooperativos", True):
+            # No cooperative weights: the "weighted" candidates the router uses
+            # become the plain distance-ordered disaster-aware paths
+            for isp in novo_cenario.lista_de_isps:
+                isp.weighted_caminhos_internos_isp_durante_desastre = deepcopy(
+                    isp.caminhos_internos_isp_durante_desastre
+                )
+
         novo_cenario.initialize_cooperation(disaster_node, variant_config, cooperantes)
         return novo_cenario
 

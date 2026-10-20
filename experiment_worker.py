@@ -113,6 +113,12 @@ def run_cooperation_experiment(args: dict) -> dict:
                 as is (FirstFitSubnet competitor, which ignores K)
             output_dir: directory for this experiment's results
             save_dataframe: also write the per-request CSV (large)
+            fator_modulacao_fixo: fixed modulation factor for every path, or
+                None (default) for distance-based modulation
+            protecao: dict of ScenarioConfig ``protecao_*`` overrides enabling
+                migration-corridor protection, or None (default) for none
+            sem_pesos: True drops the cooperative alpha/beta/gamma weights
+                (plain distance-ordered disaster-aware First-Fit)
             run_index, total_runs: for progress messages
 
     Returns:
@@ -140,6 +146,16 @@ def run_cooperation_experiment(args: dict) -> dict:
     try:
         with open(args["base_path"], "rb") as f:
             base = pickle.load(f)
+        fator_fixo = args.get("fator_modulacao_fixo")
+        if fator_fixo is not None:
+            base.aplicar_modulacao_fixa(fator_fixo)
+        overrides = dict(args.get("protecao") or {})
+        if args.get("sem_pesos"):
+            overrides["pesos_cooperativos"] = False
+        if overrides and variante != "first_fit":
+            from simulador.config.simulation_settings import ScenarioConfig
+
+            base.config = (base.config or ScenarioConfig()).copy_with(**overrides)
         if variante == "first_fit":
             scenario = base
         else:
@@ -181,6 +197,19 @@ def run_cooperation_experiment(args: dict) -> dict:
         resumo, por_isp = metricas_cooperacao(df, scenario, cooperantes)
         resumo["base_index"] = base_index
         resumo["variante"] = variante
+        resumo["fator_modulacao_fixo"] = fator_fixo
+        resumo["sem_pesos"] = bool(args.get("sem_pesos"))
+        prot = getattr(simulador.topology, "protecao_migracao", None)
+        resumo["protecao"] = (
+            None if prot is None else f"{prot.modo}/{prot.escopo}"
+        )
+        resumo["prot_max_links"] = None if prot is None else prot.max_links_protegidos
+        resumo["prot_normais_restringidas"] = (
+            None if prot is None else prot.normais_restringidas
+        )
+        resumo["prot_reserva_media_slots"] = (
+            None if prot is None else prot.reserva_media_slots
+        )
         for linha in por_isp:
             linha["base_index"] = base_index
             linha["variante"] = variante
