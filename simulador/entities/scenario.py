@@ -281,6 +281,66 @@ class Scenario:
         self.lista_de_requisicoes = mantidas
         return len(reqs), len(mantidas)
 
+    def aviso_compartilhado(self, semente: int = 0) -> int:
+        """The first ISP to discover the threat warns the others.
+
+        Every ISP reacts at tau_min, the earliest discovery time. Each ISP's
+        migration stream is extended back to tau_min with the same rate,
+        bit-rate and holding-time distributions as the stored one (drawn with a
+        seeded generator), so its volume D_i is unchanged and only the window
+        grows. Nothing changes before tau_min, so shared prefixes still apply.
+
+        Returns:
+            Number of migration requests added.
+        """
+        import numpy as np
+
+        from simulador.config.settings import (
+            BANDWIDTH,
+            CLASS_TYPE,
+            CLASS_WEIGHT,
+            HOLDING_TIME,
+            SLOT_SIZE,
+        )
+        from simulador.generators.traffic_generator import TrafficGenerator
+
+        isps = [isp for isp in self.lista_de_isps if isp.datacenter is not None]
+        tau_min = min(isp.datacenter.tempo_de_reacao for isp in isps)
+        rng = np.random.default_rng(semente)
+        reqs = self.lista_de_requisicoes or []
+        proximo = max((int(r.req_id) for r in reqs), default=0) + 1
+        slots_por_requisicao = (sum(BANDWIDTH) / len(BANDWIDTH)) / SLOT_SIZE
+        novos = []
+        for isp in sorted(isps, key=lambda i: i.isp_id):
+            dc = isp.datacenter
+            taxa = dc.throughput_por_segundo / slots_por_requisicao
+            t = tau_min
+            while True:
+                t += rng.exponential(1 / taxa)
+                if t >= dc.tempo_de_reacao:
+                    break
+                r = TrafficGenerator.gerar_requisicao(
+                    self.topology,
+                    str(proximo),
+                    {
+                        "src": int(dc.source),
+                        "dst": int(dc.destination),
+                        "src_isp_index": int(isp.isp_id),
+                        "dst_isp_index": int(isp.isp_id),
+                        "requisicao_de_migracao": True,
+                        "bandwidth": int(rng.choice(BANDWIDTH)),
+                        "holding_time": float(rng.normal(HOLDING_TIME, HOLDING_TIME * 0.1)),
+                        "class_type": int(rng.choice(CLASS_TYPE, p=CLASS_WEIGHT)),
+                    },
+                )
+                r.src, r.dst = int(dc.source), int(dc.destination)
+                r.tempo_criacao = t
+                novos.append(r)
+                proximo += 1
+            dc.tempo_de_reacao = tau_min
+        self.lista_de_requisicoes = sorted(reqs + novos, key=lambda r: r.tempo_criacao)
+        return len(novos)
+
     def reduzir_carga(self, fracao: float) -> tuple[int, int]:
         """Keep only a fraction of the background requests (independent thinning).
 

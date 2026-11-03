@@ -127,6 +127,8 @@ def run_cooperation_experiment(args: dict) -> dict:
             caminhos_first_fit: with variante "first_fit", number of candidate
                 paths each ISP uses from its discovery time on (None keeps the
                 stored 3)
+            aviso_compartilhado: True makes every ISP react at the first
+                discovery time (Scenario.aviso_compartilhado)
             fator_carga: keep this fraction of the background requests
                 (Scenario.reduzir_carga), or None (default) for all of them
             destino_migracao: "saltos" or "distancia" re-chooses each ISP's
@@ -170,6 +172,9 @@ def run_cooperation_experiment(args: dict) -> dict:
         destino = args.get("destino_migracao")
         if destino is not None:
             base.redefinir_destinos_migracao(destino)
+        if args.get("aviso_compartilhado"):
+            # First ISP to discover warns the others: all react at tau_min
+            base.aviso_compartilhado(semente=base_index)
         fator_fixo = args.get("fator_modulacao_fixo")
         if fator_fixo is not None:
             base.aplicar_modulacao_fixa(fator_fixo)
@@ -260,6 +265,7 @@ def run_cooperation_experiment(args: dict) -> dict:
         resumo["recortar_janela"] = bool(args.get("recortar_janela"))
         resumo["prefixo"] = bool(prefixo)
         resumo["fator_carga"] = fator_carga
+        resumo["aviso_compartilhado"] = bool(args.get("aviso_compartilhado"))
         resumo["caminhos_first_fit"] = args.get("caminhos_first_fit")
         prot = getattr(simulador.topology, "protecao_migracao", None)
         resumo["protecao"] = (
