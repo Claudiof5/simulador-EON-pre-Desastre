@@ -137,6 +137,11 @@ class ISP:
 
         # Switch to disaster routing
         self.roteamento_atual = self.roteamento_desastre
+        # Optional larger candidate list for plain First-Fit in the warning window
+        # (set by experiment_worker for the First-Fit baseline; absent otherwise)
+        janela = getattr(self, "caminhos_internos_isp_janela", None)
+        if janela:
+            self.caminhos_internos_isp = janela
 
         # Only start datacenter migration if using runtime mode (no pre-generated requests)
         # When lista_de_requisicoes is provided, migration requests are pre-generated

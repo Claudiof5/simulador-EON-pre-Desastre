@@ -119,6 +119,19 @@ def run_cooperation_experiment(args: dict) -> dict:
                 migration-corridor protection, or None (default) for none
             sem_pesos: True drops the cooperative alpha/beta/gamma weights
                 (plain distance-ordered disaster-aware First-Fit)
+            recortar_janela: True ends the simulation at t_d (drops the
+                requests created afterwards; faster, same metrics)
+            prefixo: path of a prefix file from calcular_prefixo; the run then
+                starts at the first discovery time from the saved state
+                (same results, shorter run)
+            caminhos_first_fit: with variante "first_fit", number of candidate
+                paths each ISP uses from its discovery time on (None keeps the
+                stored 3)
+            fator_carga: keep this fraction of the background requests
+                (Scenario.reduzir_carga), or None (default) for all of them
+            destino_migracao: "saltos" or "distancia" re-chooses each ISP's
+                migration destination (farthest in hops or in km); None keeps
+                the destination stored in the scenario
             run_index, total_runs: for progress messages
 
     Returns:
@@ -130,8 +143,10 @@ def run_cooperation_experiment(args: dict) -> dict:
 
     from simulador import ScenarioGenerator
     from simulador.analysis.cooperation_metrics import (
+        caminhos_fundo,
         metricas_cooperacao,
         rotulo_cooperantes,
+        uso_da_rede,
     )
 
     base_index = args["base_index"]
@@ -146,6 +161,15 @@ def run_cooperation_experiment(args: dict) -> dict:
     try:
         with open(args["base_path"], "rb") as f:
             base = pickle.load(f)
+        if args.get("recortar_janela"):
+            # Stop at the failure: metrics ignore later requests
+            base.recortar_janela()
+        fator_carga = args.get("fator_carga")
+        if fator_carga is not None:
+            base.reduzir_carga(fator_carga)
+        destino = args.get("destino_migracao")
+        if destino is not None:
+            base.redefinir_destinos_migracao(destino)
         fator_fixo = args.get("fator_modulacao_fixo")
         if fator_fixo is not None:
             base.aplicar_modulacao_fixa(fator_fixo)
@@ -158,6 +182,15 @@ def run_cooperation_experiment(args: dict) -> dict:
             base.config = (base.config or ScenarioConfig()).copy_with(**overrides)
         if variante == "first_fit":
             scenario = base
+            k_janela = args.get("caminhos_first_fit")
+            if k_janela:
+                # Same First-Fit before tau_i; k_janela candidates from tau_i on
+                grafo = scenario.topology.topology
+                for isp in scenario.lista_de_isps:
+                    antes = isp.caminhos_internos_isp
+                    isp.computar_caminhos_internos(grafo, k_janela)
+                    isp.caminhos_internos_isp_janela = isp.caminhos_internos_isp
+                    isp.caminhos_internos_isp = antes
         else:
             scenario = ScenarioGenerator.gerar_cenario_com_cooperacao(
                 base, cooperantes, copiar=False
@@ -173,14 +206,38 @@ def run_cooperation_experiment(args: dict) -> dict:
         _Weighted._link_weights_cache = {}
         _Weighted._migration_weights_cache = None
 
+        # Read by the router (Topology object shared with the simulator)
+        scenario.topology.migracao_last_fit = bool(
+            getattr(scenario.config, "migracao_last_fit", False)
+        )
+        saidas = getattr(scenario.config, "migracao_saidas_distintas", None)
+        saidas_distintas = (
+            scenario.diversificar_saidas_migracao(saidas) if saidas else None
+        )
+
+        prefixo = None
+        if args.get("prefixo"):
+            # Resume from the shared prefix: start at tau_min with the
+            # connections that were active then (see calcular_prefixo)
+            with open(args["prefixo"], "rb") as f:
+                prefixo = pickle.load(f)
+            _checar_prefixo(prefixo, scenario, fator_fixo, fator_carga)
+            scenario.lista_de_requisicoes = [
+                r
+                for r in scenario.lista_de_requisicoes or []
+                if r.tempo_criacao >= prefixo["tau_min"]
+            ]
+
         Metrics.reseta_registrador()
-        env = Environment()
+        env = Environment(initial_time=prefixo["tau_min"] if prefixo else 0)
         simulador = Simulator(
             env=env,
             topology=scenario.topology.topology,
             status_logger=False,
             cenario=scenario,
         )
+        if prefixo:
+            _restaurar_conexoes(simulador, prefixo)
         # Silence the coordinator's per-event prints (hundreds of runs)
         with contextlib.redirect_stdout(io.StringIO()):
             simulador.run()
@@ -199,9 +256,18 @@ def run_cooperation_experiment(args: dict) -> dict:
         resumo["variante"] = variante
         resumo["fator_modulacao_fixo"] = fator_fixo
         resumo["sem_pesos"] = bool(args.get("sem_pesos"))
+        resumo["destino_migracao"] = destino or "saltos"
+        resumo["recortar_janela"] = bool(args.get("recortar_janela"))
+        resumo["prefixo"] = bool(prefixo)
+        resumo["fator_carga"] = fator_carga
+        resumo["caminhos_first_fit"] = args.get("caminhos_first_fit")
         prot = getattr(simulador.topology, "protecao_migracao", None)
         resumo["protecao"] = (
             None if prot is None else f"{prot.modo}/{prot.escopo}"
+        )
+        resumo["migracao_last_fit"] = bool(getattr(scenario.topology, "migracao_last_fit", False))
+        resumo["saidas_distintas"] = (
+            None if saidas_distintas is None else {str(k): v for k, v in saidas_distintas.items()}
         )
         resumo["prot_max_links"] = None if prot is None else prot.max_links_protegidos
         resumo["prot_normais_restringidas"] = (
@@ -209,6 +275,39 @@ def run_cooperation_experiment(args: dict) -> dict:
         )
         resumo["prot_reserva_media_slots"] = (
             None if prot is None else prot.reserva_media_slots
+        )
+        # Spectrum usage in [tau_min, t_d), counting connections restored from
+        # the shared prefix so resumed and full runs give the same value
+        tau_min = min(
+            isp.datacenter.tempo_de_reacao
+            for isp in scenario.lista_de_isps
+            if isp.datacenter is not None
+        )
+        uso = uso_da_rede(
+            Metrics.get_intance().requisicoes,
+            simulador.topology.topology,
+            tau_min,
+            scenario.desastre.start,
+            conexoes_iniciais=prefixo["ativas"] if prefixo else (),
+            links_protegidos=() if prot is None else prot.links_ja_protegidos,
+        )
+        resumo["U_links"] = uso.pop("U_links")
+        resumo.update(uso)
+        taus = {
+            isp.isp_id: isp.datacenter.tempo_de_reacao
+            for isp in scenario.lista_de_isps
+            if isp.datacenter is not None
+        }
+        resumo.update(
+            caminhos_fundo(
+                Metrics.get_intance().requisicoes, taus, scenario.desastre.start
+            )
+        )
+        resumo["prot_ganho_medio"] = None if prot is None else prot.ganho_medio
+        resumo["prot_historico_ganho"] = (
+            None
+            if prot is None or not prot.historico_ganho
+            else [[t, {str(k): g for k, g in gs.items()}] for t, gs in prot.historico_ganho]
         )
         for linha in por_isp:
             linha["base_index"] = base_index
@@ -247,3 +346,140 @@ def run_cooperation_experiment(args: dict) -> dict:
             "K": rotulo,
             "error": str(e),
         }
+
+# ---------------------------------------------------------------------------
+# Shared prefix: every variant behaves the same before the first ISP reacts
+# (same traffic, plain First-Fit, no cooperation or reservation). It is
+# simulated once per base scenario; each run then starts at tau_min with the
+# connections that were active at that instant. Metrics only use requests
+# created after the discovery times, so results are unchanged.
+# ---------------------------------------------------------------------------
+
+
+def _assinatura(scenario) -> dict:
+    reqs = scenario.lista_de_requisicoes or []
+    taus = [
+        isp.datacenter.tempo_de_reacao
+        for isp in scenario.lista_de_isps
+        if isp.datacenter is not None
+    ]
+    return {
+        "tau_min": min(taus),
+        "t_d": scenario.desastre.start,
+        "isps": [sorted(isp.nodes) for isp in scenario.lista_de_isps],
+    }
+
+
+def calcular_prefixo(
+    base_path: str | Path,
+    destino: str | Path,
+    fator_modulacao_fixo: float | None = None,
+    fator_carga: float | None = None,
+) -> Path:
+    """Simulate [0, tau_min) once and save the connections active at tau_min.
+
+    Args:
+        base_path: base scenario pickle (cenario_disaster_aware{i}.pkl)
+        destino: where to write the prefix file
+        fator_modulacao_fixo: must match the runs that will use the prefix
+        fator_carga: background fraction kept; must match the runs too
+
+    Returns:
+        Path of the prefix file.
+    """
+    with open(base_path, "rb") as f:
+        base = pickle.load(f)
+    if fator_modulacao_fixo is not None:
+        base.aplicar_modulacao_fixa(fator_modulacao_fixo)
+    if fator_carga is not None:
+        base.reduzir_carga(fator_carga)
+    assinatura = _assinatura(base)
+    tau_min = assinatura["tau_min"]
+    n_total = len(base.lista_de_requisicoes or [])
+    base.lista_de_requisicoes = [
+        r for r in base.lista_de_requisicoes or [] if r.tempo_criacao < tau_min
+    ]
+
+    Metrics.reseta_registrador()
+    env = Environment()
+    simulador = Simulator(
+        env=env, topology=base.topology.topology, status_logger=False, cenario=base
+    )
+    import contextlib
+    import io
+
+    with contextlib.redirect_stdout(io.StringIO()):
+        env.process(simulador._run())
+        env.run(until=tau_min)
+
+    ativas = [
+        (
+            list(r.caminho),
+            tuple(r.index_de_inicio_e_final),
+            float(r.tempo_desalocacao),
+        )
+        for r in Metrics.get_intance().requisicoes
+        if r.bloqueada is False
+        and r.tempo_desalocacao is not None
+        and r.tempo_desalocacao > tau_min
+    ]
+
+    # The saved connections must explain the occupancy exactly
+    g = simulador.topology.topology
+    ocupacao = {
+        frozenset((u, v)): [0] * len(d["slots"]) for u, v, d in g.edges(data=True)
+    }
+    for caminho, (ini, fim), _ in ativas:
+        for u, v in zip(caminho, caminho[1:]):
+            for slot in range(ini, fim + 1):
+                ocupacao[frozenset((u, v))][slot] = 1
+    for u, v, d in g.edges(data=True):
+        if list(d["slots"]) != ocupacao[frozenset((u, v))]:
+            raise RuntimeError(f"prefix occupancy mismatch on link {(u, v)}")
+
+    prefixo = {
+        **assinatura,
+        "n_requisicoes_total": n_total,
+        "fator_modulacao_fixo": fator_modulacao_fixo,
+        "fator_carga": fator_carga,
+        "ativas": ativas,
+    }
+    destino = Path(destino)
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    with open(destino, "wb") as f:
+        pickle.dump(prefixo, f)
+    return destino
+
+
+def _checar_prefixo(
+    prefixo: dict, scenario, fator_modulacao_fixo, fator_carga=None
+) -> None:
+    assinatura = _assinatura(scenario)
+    for chave in ("tau_min", "t_d", "isps"):
+        if prefixo[chave] != assinatura[chave]:
+            raise ValueError(f"prefix does not match this scenario ({chave})")
+    if prefixo.get("fator_modulacao_fixo") != fator_modulacao_fixo:
+        raise ValueError("prefix was computed with a different modulation setting")
+    if prefixo.get("fator_carga") != fator_carga:
+        raise ValueError("prefix was computed with a different background load")
+
+
+def _restaurar_conexoes(simulador, prefixo: dict) -> None:
+    """Re-create the connections active at tau_min, released at their own time."""
+    topologia = simulador.topology
+    env = simulador.env
+    for caminho, (ini, fim), t_fim in prefixo["ativas"]:
+        topologia.aloca_janela(caminho, (ini, fim))
+        env.process(
+            topologia.desaloca_janela(caminho, (ini, fim), t_fim - env.now, env)
+        )
+
+
+def prefixo_path(
+    output_root: str | Path, base_index: int, fator=None, fator_carga=None
+) -> Path:
+    """Default location of the prefix file of a base scenario."""
+    sufixo = "" if fator is None else f"_mod{fator:g}"
+    if fator_carga is not None:
+        sufixo += f"_carga{fator_carga:g}"
+    return Path(output_root) / "prefixos" / f"prefixo_base{base_index}{sufixo}.pkl"

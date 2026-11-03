@@ -132,6 +132,12 @@ class Scenario:
                 holding_time=config.holding_time,
                 slot_size=config.slot_size,
                 margem=getattr(config, "protecao_margem", 1.0),
+                feedback_lambda=getattr(config, "protecao_feedback_lambda", 1.0),
+                feedback_kappa=getattr(config, "protecao_feedback_kappa", 0.5),
+                feedback_intervalo=getattr(config, "protecao_feedback_intervalo", 1.0),
+                reserva_max=getattr(config, "protecao_reserva_max", None),
+                agregacao=getattr(config, "protecao_agregacao", "soma"),
+                divisao_uso=getattr(config, "protecao_divisao_uso", False),
             )
         # The router reads it from the topology; the coordinator updates it
         self.topology.protecao_migracao = protecao
@@ -182,6 +188,127 @@ class Scenario:
 
         if self.config is not None:
             self.config = self.config.copy_with(fator_modulacao_fixo=fator)
+
+    def redefinir_destinos_migracao(self, criterio: str) -> dict[int, tuple[int, int]]:
+        """Re-choose each ISP's migration destination and retarget its requests.
+
+        Traffic is pre-generated, so only the destination of the existing
+        migration requests changes: volume, bit rates and timing stay the same.
+
+        Args:
+            criterio: "saltos" (farthest in hops) or "distancia" (farthest in km)
+
+        Returns:
+            {isp_id: (old destination, new destination)}
+        """
+        from simulador.generators.datacenter_generator import DatacenterGenerator
+
+        mudancas: dict[int, tuple[int, int]] = {}
+        novo_destino: dict[int, int] = {}
+        for isp in self.lista_de_isps:
+            dc = isp.datacenter
+            if dc is None:
+                continue
+            destino = DatacenterGenerator.destino_mais_distante(
+                self.topology.topology, dc.source, isp.nodes, criterio
+            )
+            mudancas[isp.isp_id] = (int(dc.destination), destino)
+            dc.destination = destino
+            novo_destino[isp.isp_id] = destino
+
+        for req in self.lista_de_requisicoes or []:
+            if req.requisicao_de_migracao and req.src_isp_index in novo_destino:
+                req.dst = novo_destino[req.src_isp_index]
+
+        if self.config is not None:
+            self.config = self.config.copy_with(destino_migracao=criterio)
+        return mudancas
+
+    def diversificar_saidas_migracao(self, n: int = 3) -> dict[int, int]:
+        """Reorder migration paths so the first ``n`` use different exit links.
+
+        For each provider, the candidate paths from its datacenter to its
+        destination are re-ranked: the shortest path first, then the shortest
+        path through each exit link (first link) not used yet, up to ``n``
+        paths; the remaining paths follow in their original order. Providers
+        with fewer exits get as many distinct exits as they have. The router
+        tries migration paths in this order and the corridor uses the first
+        ones, so both follow the new order.
+
+        Returns:
+            {isp_id: number of distinct exits among its first n paths}
+        """
+        resultado = {}
+        for isp in self.lista_de_isps:
+            dc = isp.datacenter
+            if dc is None:
+                continue
+            for atributo in (
+                "weighted_caminhos_internos_isp_durante_desastre",
+                "caminhos_internos_isp_durante_desastre",
+            ):
+                tabela = getattr(isp, atributo, None) or {}
+                caminhos = tabela.get(dc.source, {}).get(dc.destination)
+                if not caminhos:
+                    continue
+                escolhidos, saidas = [], set()
+                for c in caminhos:
+                    saida = c["caminho"][1] if len(c["caminho"]) > 1 else None
+                    if len(escolhidos) < n and saida not in saidas:
+                        escolhidos.append(c)
+                        saidas.add(saida)
+                resto = [c for c in caminhos if all(c is not e for e in escolhidos)]
+                tabela[dc.source][dc.destination] = escolhidos + resto
+                resultado[isp.isp_id] = len(saidas)
+        return resultado
+
+    def recortar_janela(self) -> tuple[int, int]:
+        """Drop the requests created at or after the failure (t_d).
+
+        Metrics only count requests created before t_d, and requests created
+        later cannot change anything that happened before, so the measured
+        results are identical to a full run. The simulation still starts at the
+        beginning, so the network state at each discovery time is the same.
+
+        Returns:
+            (requests before, requests after)
+        """
+        reqs = self.lista_de_requisicoes or []
+        fim = self.desastre.start
+        mantidas = [
+            r for r in reqs if r.tempo_criacao is not None and r.tempo_criacao < fim
+        ]
+        self.lista_de_requisicoes = mantidas
+        return len(reqs), len(mantidas)
+
+    def reduzir_carga(self, fracao: float) -> tuple[int, int]:
+        """Keep only a fraction of the background requests (independent thinning).
+
+        A background request is kept when a pseudo-random number derived from
+        its req_id is below ``fracao``, so thinning a Poisson stream gives a
+        Poisson stream of rate ``fracao`` times the original, every scenario
+        variant drops the same requests, and a smaller fraction keeps a subset
+        of the requests kept by a larger one. Migration requests are untouched.
+
+        Returns:
+            (background requests before, background requests kept)
+        """
+        import hashlib
+
+        if not 0 < fracao <= 1:
+            raise ValueError(f"fracao must be in (0, 1], got {fracao}")
+
+        def sorteio(req_id: str) -> float:
+            h = hashlib.blake2b(str(req_id).encode(), digest_size=8).digest()
+            return int.from_bytes(h, "big") / 2**64
+
+        reqs = self.lista_de_requisicoes or []
+        fundo = sum(not r.requisicao_de_migracao for r in reqs)
+        self.lista_de_requisicoes = [
+            r for r in reqs if r.requisicao_de_migracao or sorteio(r.req_id) < fracao
+        ]
+        mantidas = sum(not r.requisicao_de_migracao for r in self.lista_de_requisicoes)
+        return fundo, mantidas
 
     def salva_cenario(self, nome: str) -> None:
         with open(f".cenario/cenarios/{nome}.pkl", "wb") as f:
