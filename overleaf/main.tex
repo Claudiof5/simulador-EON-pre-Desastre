@@ -758,12 +758,12 @@ All three loads therefore lie in a heavily loaded regime, and the results do not
 
 The simplest information a provider can share is the warning itself.
 If the first provider to discover the threat warns the others, every provider reacts at $\min_i\tau_i$, which brings the discovery of the others forward by 45~s on average (up to 125~s) and lengthens the mean warning window from 298 to 334~s.
-Table~\ref{tab:warning} separates the effect of the warning from that of the cooperative reservation with all providers in $K$.
+Table~\ref{tab:warning} compares the warning, the cooperative reservation with all providers in $K$, and their combination with the same reference.
 
 \begin{table}[!htb]
 \centering
 \small
-\caption{Shared warning: gain in migrated fraction in percentage points $\pm$ the half-width of the 95\% paired $t$ confidence interval over the 10 base scenarios. Warning alone: reference with a shared warning minus the reference. Cooperation: cooperative demand-driven reservation with $K=\mathcal{I}$ minus the reference, with the same discovery times. Both: cooperation with a shared warning minus the reference without it.}
+\caption{Shared warning: gain in migrated fraction over the reference (disaster-aware First-Fit without reservation, each provider reacting at its own discovery time), in percentage points $\pm$ the half-width of the 95\% paired $t$ confidence interval over the 10 base scenarios. With a shared warning, every provider reacts at the first discovery time. Cooperation: demand-driven reservation with $K=\mathcal{I}$.}
 \label{tab:warning}
 \setlength{\tabcolsep}{4pt}
 \begin{tabular}{@{}lccc@{}}
@@ -772,18 +772,17 @@ Table~\ref{tab:warning} separates the effect of the warning from that of the coo
 \cmidrule(l){2-4}
  & 78 & 117 & 156 \\
 \midrule
-Warning alone & $+3.3\pm1.1$ & $+4.4\pm1.6$ & $+4.6\pm1.5$ \\
+Shared warning, no reservation & $+3.3\pm1.1$ & $+4.4\pm1.6$ & $+4.6\pm1.5$ \\
+Shared warning, individual protection & $+3.4\pm1.1$ & $+4.7\pm1.8$ & $+5.4\pm1.9$ \\
 Cooperation, own discovery times & $+3.9\pm1.8$ & $+6.5\pm2.7$ & $+8.8\pm3.5$ \\
-Cooperation, shared warning & $+3.5\pm1.8$ & $+5.8\pm2.6$ & $+8.3\pm3.4$ \\
-Both & $+6.8\pm2.3$ & $+10.1\pm3.2$ & $+12.9\pm3.9$ \\
-\bottomrule
+Cooperation and shared warning & $+6.8\pm2.3$ & $+10.1\pm3.2$ & $+12.9\pm3.9$ \\
 \end{tabular}
 \end{table}
 
 The warning alone raises the migrated fraction by $4.6$~pp at full load, in all 10 scenarios, and leaves the background blocking unchanged ($0.370$ against $0.368$), since it only starts the migration earlier.
-The cooperative reservation adds almost as much with the warning as without it ($+8.3$ against $+8.8$~pp, in all 10 scenarios, for $2.9$~pp of background blocking), so the two effects nearly add up: together they raise the migrated fraction by $12.9$~pp, and 38\% of the providers complete their migration, against 24\% with the warning alone and 16\% in the reference.
+Combined with the warning, the cooperative reservation adds $12.9-4.6=8.3$~pp, almost as much as without it ($8.8$~pp), for $2.9$~pp of background blocking, so the two effects nearly add up: together they raise the migrated fraction by $12.9$~pp, and 38\% of the providers complete their migration, against 24\% with the warning alone and 16\% in the reference.
 The same holds at the lower loads, where both effects are smaller.
-Individual protection still gains little with a shared warning ($+0.8$~pp at full load, positive in 6 of 10 scenarios).
+Individual protection still adds little to the warning ($5.4$ against $4.6$~pp at full load).
 
 The gain of the warning is not shared by every provider.
 The provider that discovers the threat first gains no time, and it loses the period in which it migrated before the others started; since all migrations leave node 9 through the same exit links, it now competes with them from the start.
