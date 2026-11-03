@@ -20,6 +20,31 @@ if TYPE_CHECKING:
 
 class DatacenterGenerator:
     @staticmethod
+    def destino_mais_distante(
+        topology: nx.Graph, source: int, nodes_isp, criterio: str = "saltos"
+    ) -> int:
+        """Node of the ISP farthest from ``source``.
+
+        Args:
+            topology: Network topology (link attribute "weight" = length in km)
+            source: Disaster node holding the datacenter
+            nodes_isp: Nodes of the ISP
+            criterio: "saltos" (hops) or "distancia" (shortest-path length in km)
+        """
+        if criterio not in ("saltos", "distancia"):
+            raise ValueError(
+                f"criterio must be 'saltos' or 'distancia', got {criterio!r}"
+            )
+        peso = "weight" if criterio == "distancia" else None
+        distancias = nx.shortest_path_length(topology, source, weight=peso)
+        candidatos = {
+            int(n): float(d)
+            for n, d in distancias.items()
+            if n in nodes_isp and int(n) != int(source)
+        }
+        return int(max(candidatos, key=lambda n: candidatos[n]))
+
+    @staticmethod
     def gerar_datacenter(
         disaster: "Disaster",
         topology: nx.Graph,
@@ -53,16 +78,11 @@ class DatacenterGenerator:
                     [d["node"] for d in disaster.list_of_dict_node_per_start_time]
                 )
             )
-            all_distances: dict = nx.shortest_path_length(topology, datacenter_source)
-
-            node_distances: dict[int, int] = {}
-            for node, distancia in all_distances.items():
-                if node in nodes_isp:
-                    node_distances[int(node)] = int(distancia)
-
-            # Find the node in nodes_isp with the maximum distance
-            datacenter_destination = int(
-                max(node_distances, key=lambda x: node_distances[x])
+            datacenter_destination = DatacenterGenerator.destino_mais_distante(
+                topology,
+                datacenter_source,
+                nodes_isp,
+                getattr(config, "destino_migracao", "saltos"),
             )
 
             tempo_de_inicio = disaster.start - np.random.normal(

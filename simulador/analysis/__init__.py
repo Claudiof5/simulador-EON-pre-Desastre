@@ -7,11 +7,13 @@ Modules:
     - metrics_calculator: Availability, blocking rates, degradation metrics
     - dataframe_filters: Filter and slice data by time, node, distance
     - reporters: Formatted console output and reports
+    - cooperation_metrics: eta_i, eta(K), Gamma(K) from problema.tex
 """
 
 from __future__ import annotations
 
 from simulador.analysis import (
+    cooperation_metrics,
     dataframe_filters,
     metrics_calculator,
     reporters,
@@ -19,6 +21,7 @@ from simulador.analysis import (
 )
 
 __all__ = [
+    "cooperation_metrics",
     "dataframe_filters",
     "metrics_calculator",
     "reporters",

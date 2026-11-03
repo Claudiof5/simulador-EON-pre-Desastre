@@ -137,6 +137,71 @@ class ScenarioConfig:
     beta: float = BETA  # Migration traffic weight in weighted routing
     gamma: float = GAMMA  # Link criticality weight in weighted routing
 
+    # Cooperation (problema.tex, K): IDs of the ISPs that share information once
+    # they react. None keeps the historical behavior (every ISP cooperates).
+    # An empty tuple means nobody cooperates (every ISP keeps a local view).
+    cooperating_isps: tuple[int, ...] | None = None
+
+    # False drops the cooperative alpha/beta/gamma link weights: every ISP routes
+    # on its k shortest paths by distance (plain disaster-aware First-Fit), and
+    # joining the cooperation no longer recomputes paths. Cooperation then only
+    # matters through migration-corridor protection.
+    pesos_cooperativos: bool = True
+
+    # How the migration destination d_i is chosen among the ISP's nodes:
+    # "saltos" = farthest from the disaster node in hops (historical default),
+    # "distancia" = farthest in km (shortest-path length on the topology).
+    # Apply it to a pickled scenario with Scenario.redefinir_destinos_migracao.
+    destino_migracao: str = "saltos"
+
+    # Modulation override: None keeps distance-based modulation (factor 1-4).
+    # A number fixes every path's factor to it, so path length no longer
+    # changes how many slots a request needs. Apply it to a pickled scenario
+    # with Scenario.aplicar_modulacao_fixa.
+    fator_modulacao_fixo: float | None = None
+
+    # Migration-corridor protection (simulador/coordination/migration_protection.py).
+    # None disables it. "reserva_demanda" reserves, per link, the slots its
+    # owners still need to finish migrating by t_d (see that module). "reserva": background traffic can't use the top
+    # protecao_reserva_fracao of the slots on protected links. "adaptativo":
+    # background traffic is kept off protected links with probability
+    # min(protecao_p_max, recent migration blocking of the link's owners).
+    # Scope "cooperacao": links exclusive to the cooperating set (mediator
+    # discloses sigma(e)); "isolado": control, each reacted ISP protects the
+    # links only it uses.
+    protecao_modo: str | None = None
+    protecao_escopo: str = "cooperacao"
+    protecao_reserva_fracao: float = 0.25
+    protecao_p_max: float = 0.9
+    protecao_janela_migracao: int = 100
+    protecao_caminhos_corredor: int = 3
+    # "reserva_demanda": multiplies the slots each owner needs to finish on time
+    protecao_margem: float = 1.0
+    # "reserva_feedback": the demand-driven reserve is multiplied by a gain g
+    # updated every protecao_feedback_intervalo seconds:
+    #   g <- g * exp(kappa * (atraso - lambda * B_n_res - ociosa))
+    # atraso: how far the owner fell behind the rate needed to finish by t_d
+    # in the last interval; B_n_res: share of background requests near the
+    # owner's protected links blocked by the reserve; ociosa: unused share of
+    # the reserve, counted only while the owner is on schedule.
+    protecao_feedback_lambda: float = 1.0
+    protecao_feedback_kappa: float = 0.5
+    protecao_feedback_intervalo: float = 1.0
+    # Cap on the reserve of any link, as a fraction of its slots (None: no cap)
+    protecao_reserva_max: float | None = None
+    # "reserva_demanda": "soma" adds the needs of a link's owners, "max" keeps
+    # only the largest; divisao_uso splits each need among the corridor paths
+    # by where migration is accepted (needs protecao_caminhos_corredor > 1)
+    protecao_agregacao: str = "soma"
+    protecao_divisao_uso: bool = False
+    # Reorder each provider's migration paths so that the first n leave the
+    # disaster node through different links where its overlay allows it
+    # (None: keep the shortest-first order). See Scenario.diversificar_saidas_migracao
+    migracao_saidas_distintas: int | None = None
+    # Allocate migration requests with Last-Fit (highest free block) instead of
+    # First-Fit; background traffic always uses First-Fit
+    migracao_last_fit: bool = False
+
     # Disaster parameters
     disaster_start: float = INICIO_DESASTRE
     disaster_start_variance: float = VARIANCIA_INICIO_DESASTRE
@@ -180,6 +245,12 @@ class ScenarioConfig:
         if self.numero_de_requisicoes < 0:
             raise ValueError(
                 f"numero_de_requisicoes must be non-negative, got {self.numero_de_requisicoes}"
+            )
+
+        if self.fator_modulacao_fixo is not None and self.fator_modulacao_fixo <= 0:
+            raise ValueError(
+                "fator_modulacao_fixo must be positive or None, "
+                f"got {self.fator_modulacao_fixo}"
             )
 
         # Validate timing parameters

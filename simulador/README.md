@@ -78,6 +78,19 @@ from simulador import main
 main()
 ```
 
+### Note on the migration rate
+
+`config/settings.py` sizes each provider's migration at
+`MIGRATION_NETWORK_FRACTION × background rate / 5 ≈ 7.8` requests/s and turns
+it into `THROUGHPUT` with 41.4 slot-hops per request (3 hops, modulation 1.45).
+`generators/traffic_generator.py` converts it back with 20 slots per request
+(250 Gb/s ÷ 12.5 Gb/s), so the generated rate is about 2.07× the configured one
+(~16 requests/s per provider). `TAMANHO_DATACENTER` is still computed from the
+configured 7.8 requests/s, so the offered migration is about 2.8× the volume
+needed instead of the intended 1/0.75. The stored scenarios and the article use
+the generated values; the 25% fraction and the "75% completion" comment in
+`settings.py` describe the intent, not what is simulated.
+
 ## 🔄 Key Changes from Original
 
 ### 1. **Organized by Function, Not Type**
