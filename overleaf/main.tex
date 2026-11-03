@@ -4,23 +4,34 @@
 \usepackage[utf8]{inputenc}
 \usepackage{lmodern}
 \usepackage[english]{babel}
-\usepackage{amsmath,amssymb,amsthm,mathtools}
+\usepackage{amsmath,amssymb,amsthm}
 \usepackage{geometry}
 \usepackage{booktabs}
 \usepackage{enumitem}
 \usepackage{graphicx}
 \usepackage{xcolor}
-\usepackage{hyperref}
+\usepackage{flafter}
+\usepackage{cite}
 \usepackage{microtype}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,decorations.pathreplacing,patterns}
+\usepackage{caption}
+\usepackage{subcaption}
+\usepackage{hyperref}
 
 \geometry{margin=2.4cm}
-\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue}
+\renewcommand{\topfraction}{0.9}
+\renewcommand{\textfraction}{0.1}
+\renewcommand{\floatpagefraction}{0.8}
+\setcounter{topnumber}{3}
+\setcounter{totalnumber}{4}
+\hypersetup{colorlinks=true,linkcolor=black,citecolor=black,urlcolor=blue,
+  pdftitle={Cooperative Spectrum Reservation for Datacenter Migration in Multi-Provider Elastic Optical Networks during the Disaster Warning Window},
+  pdfauthor={Cl\'audio de Faria Dantas}}
 
 \theoremstyle{definition}
 \newtheorem{problem}{Problem}
 \newtheorem{definition}{Definition}
-
-\newcommand{\todo}[1]{\textcolor{red}{[TODO: #1]}}
 
 \providecommand{\keywords}[1]{\par\medskip\noindent\textbf{Keywords:} #1}
 
@@ -28,20 +39,24 @@
 in Multi-Provider Elastic Optical Networks\\
 during the Disaster Warning Window}
 \author{Cláudio de Faria Dantas}
-\date{\todo{date}}
+\date{}
 
 \begin{document}
 \maketitle
 
 \begin{abstract}
-When a disaster is forecast, operators have a short warning window to move critical data away from the infrastructure that is about to fail.
-In an elastic optical network shared by several providers, each provider sees only its own overlay, learns about the threat at its own time and allocates spectrum on its own, while all of them compete for the same contiguous slots on the links that leave the threatened site.
-We study whether providers that agree to cooperate can migrate more data before the failure than providers that act alone.
-Cooperation is restricted to exchanging information: no provider allocates spectrum for another.
-We propose \emph{cooperative corridor protection}: on the links of a cooperator's migration path that, according to a per-link tenant count disclosed by the infrastructure owner, are used only by cooperating providers, background traffic is kept out of a reserved part of the spectrum until the failure.
-The reservation is either a fixed fraction of the link or sized by the migration still pending.
-We evaluate the mechanism with a discrete-event simulator of a 24-node backbone shared by five providers, over every possible cooperating subset, against disaster-aware First-Fit without reservation and against providers that protect only the links they use alone.
-\todo{one or two sentences with the main quantitative results once the final runs are in.}
+When a disaster is forecast, operators have a short warning window to move critical data away from the threatened site.
+In an elastic optical network shared by several providers, each provider sees only its own overlay and learns of the threat at its own time, and the providers' migrations compete with each other and with background traffic for spectrum.
+We ask whether providers that cooperate only by exchanging information can migrate more data before the failure than providers that act alone.
+We propose \emph{cooperative corridor protection}. Using a per-link tenant count disclosed by the infrastructure owner, a group finds the links that only its members use. On those that lie on a member's migration path, all members keep their background traffic out of a reservation sized to the pending migration.
+We simulate five providers sharing the USNET backbone, over every cooperating subset in ten random scenarios.
+Cooperation helps mainly when nearly all providers join, because a link can be protected only when all of its users belong to the group.
+With all five cooperating, the migrated fraction rises on average by 8.8 percentage points over disaster-aware routing and by 7.5 points over \emph{individual protection}, in which each provider protects only the links it uses alone. Both gains are positive in all ten scenarios, at a cost of 3.3 points of background blocking.
+On the same links and at the same background blocking, sizing the reservation to the pending migration adds on average only 1.1 points over a fixed fraction, so which links are protected matters more than how the reservation is sized.
+Joining a group raises a provider's own migrated fraction on average at every group size.
+With half the background load, the gain of full cooperation over disaster-aware routing falls to 3.9 points at about the same cost.
+If the first provider to discover the threat warns the others, the warning alone raises the migrated fraction by 4.6 points over disaster-aware routing for about 1 point of background blocking, although the provider that warns loses part of its own; combined with full cooperation, the gain reaches 12.9 points.
+Even so, only 38\% of the providers complete their migration, against 16\% without cooperation.
 \end{abstract}
 
 \keywords{elastic optical networks $\cdot$ disaster preparedness $\cdot$ datacenter migration $\cdot$ multi-provider cooperation $\cdot$ spectrum reservation}
@@ -50,27 +65,39 @@ We evaluate the mechanism with a discrete-event simulator of a 24-node backbone 
 \section{Introduction}
 %======================================================================
 
-Earthquakes, floods, wildfires and large power outages damage communication infrastructure in geographically correlated ways: many nodes and links fail together, and the datacenters attached to them become unreachable \cite{rak2021disaster}.
-Most work on disaster resilience in optical networks addresses what happens \emph{after} the failure, restoring as many connections as possible with the surviving resources \cite{zou2022drama,zou2025dramapro,sahoo2022cooperation}.
-Some disasters, however, can be forecast minutes to hours in advance.
-In that \emph{warning window}, the network is still intact and the most valuable action is preparedness: moving critical data out of the area that is about to fail.
+Disasters such as earthquakes, floods, wildfires and large power outages damage communication infrastructure in geographically correlated ways: many nodes and links fail together, and the datacenters attached to them become unreachable \cite{rak2021disaster}.
+Much of the work on disaster resilience in optical networks addresses restoration after the failure \cite{zou2021drama,zou2022dramaplus,zou2025dramapro,sahoo2022cooperation}.
+When a disaster can be forecast, the \emph{warning window} can instead be used to evacuate critical data before the failure \cite{evacuation2015rapid,backup2017earlywarning,alertbased2020evacuation,ayoub2021evacuation}.
+To our knowledge, neither line of work models several providers with separate views that compete for the same spectrum.
 
 This work focuses on that window in an elastic optical network (EON) whose physical infrastructure is shared by several providers.
 Each provider operates a virtual overlay of the physical topology, sees only its own overlay, discovers the threat at its own time and allocates spectrum independently.
 All of them hold critical data at the threatened site and must migrate it before the failure, through links that are partly shared and whose spectrum must be contiguous and identical along each path.
-The links leaving the threatened site are typically shared by several providers, and migration competes there with the background traffic that keeps flowing during the warning window.
+Along its path, migration competes with the background traffic that keeps flowing during the warning window and with the migration of the other providers.
+A provider could make room for its migration by restricting its own background traffic, but on a shared link the spectrum it frees may simply be taken by another provider's traffic, which it cannot restrict.
 
-The question we ask is whether providers that \emph{cooperate} can complete more of their migration than providers that act alone, under the constraint that cooperation is limited to exchanging information.
-There is no central allocator and no provider allocates spectrum for another.
+We ask whether providers that \emph{cooperate} only by exchanging information can complete more of their migration than providers that act alone.
+We assume that providers keep control of their own allocations and that the infrastructure owner acts as a neutral carrier, which discloses information but neither allocates nor prioritizes traffic; there is no central allocator.
+By acting alone we mean \emph{individual protection}: a provider protects only the links it can prove it uses by itself.
+The second baseline, the \emph{reference}, is disaster-aware routing (background traffic avoids the threatened node) without reservation; gains are measured against it unless stated otherwise.
 
-\paragraph{Contributions.}
+The contributions of this work are:
 \begin{itemize}[leftmargin=1.2em]
-  \item A formulation of the multi-provider migration problem in the disaster warning window, with independent action, independent discovery and information-only cooperation (Section~\ref{sec:problem}).
-  \item \emph{Cooperative corridor protection}, a mechanism in which each cooperator restricts its own background traffic on the links of its migration path that the cooperating group can prove are used by no other provider. Two reservation sizes are studied: a fixed fraction of the link and a demand-driven size that follows the migration still pending (Section~\ref{sec:mechanism}).
-  \item An evaluation over every subset of cooperating providers, comparing cooperative protection with disaster-aware First-Fit without reservation and with an individual variant in which each provider protects only the links it uses alone (Sections~\ref{sec:setup} and~\ref{sec:results}).
+  \item a formulation of multi-provider migration in the disaster warning window, with independent discovery, local views and information-only cooperation (Section~\ref{sec:problem});
+  \item \emph{cooperative corridor protection}: on the links of the members' migration paths that the group can prove no outsider uses, every member keeps its background traffic out of reserved spectrum; we size the reservation to the pending migration and compare it with fixed fractions (Section~\ref{sec:mechanism});
+  \item an evaluation over every subset of cooperating providers in ten random scenarios and at three background loads, against disaster-aware First-Fit, fixed reservations and individual protection, and with a shared warning in which the first provider to discover the threat warns the others (Sections~\ref{sec:setup} and~\ref{sec:results}).
 \end{itemize}
+The main finding is that information exchange helps mainly near full participation.
+A link can be protected only when every provider that uses it belongs to the group, so the gain is small for small groups and grows sharply as the group completes.
+A provider that joins nonetheless raises its own migrated fraction on average at every group size, at the cost of its own background traffic.
+How much each protected link reserves matters less: at equal background blocking, sizing the reservation to the pending migration adds only 1.1~pp on average over a fixed fraction, so the contribution lies in identifying the links a group can provably protect.
+With less background traffic the gain shrinks, while its cost in background blocking does not.
+A shared warning adds to the gain at a small background cost, although the provider that gives it loses part of its own migration.
 
-\todo{organization paragraph once the final section list is fixed.}
+Section~\ref{sec:background} reviews elastic optical networks and the related work on disaster resilience, cooperation and information disclosure.
+Section~\ref{sec:problem} formulates the problem and Section~\ref{sec:mechanism} presents the mechanism.
+Section~\ref{sec:setup} describes the simulation setup and Section~\ref{sec:results} the results.
+Section~\ref{sec:discussion} discusses what they mean for providers and their limitations, and Section~\ref{sec:conclusion} concludes.
 
 %======================================================================
 \section{Background and related work}
@@ -80,36 +107,46 @@ There is no central allocator and no provider allocates spectrum for another.
 \subsection{Elastic optical networks}
 
 In an EON, the spectrum of each fiber is divided into narrow frequency slots, and a connection (lightpath) occupies a block of adjacent slots sized to its bit rate \cite{jinno2009spectrum}.
-Routing and spectrum assignment (RSA) must respect two constraints: \emph{contiguity}, the slots of a connection are adjacent, and \emph{continuity}, the same slots are used on every link of the path.
-The number of slots also depends on the modulation format, which is limited by the transmission reach: shorter paths can use more efficient formats and therefore fewer slots.
-First-Fit, which tries candidate paths in order and takes the lowest-indexed block of free slots that fits, is a common baseline because of its simplicity and low fragmentation.
+Routing and spectrum assignment (RSA) must respect two constraints: \emph{contiguity} (the slots of a connection are adjacent) and \emph{continuity} (the same slots are used on every link of the path).
+The number of slots also depends on the modulation format, which is limited by the transmission reach: shorter paths can use more efficient formats and therefore fewer slots \cite{jinno2010distance}.
+First-Fit, which tries candidate paths in order and takes the lowest-indexed block of free slots that fits, is a common baseline because of its simplicity.
+Keeping part of the capacity of a link away from one class of traffic is known as trunk reservation; in flexible-grid networks it has been used to balance blocking among connections of different sizes \cite{callegati2014trunk} and to define classes of service \cite{bonani2018soft}.
+Our mechanism uses a reservation of this kind; its novelty lies in where the reservation is legitimate and in who enforces it.
 
 \subsection{Disasters and the phases of resilience}
 
-Disasters differ from isolated failures because they affect many geographically correlated components at once, which invalidates the independence assumptions behind classical protection schemes such as dedicated or shared backup path protection \cite{shen2016survivable,rak2021disaster}.
-A common abstraction models the disaster zone as a region in which all nodes and incident links fail simultaneously \cite{zou2022drama,zou2025dramapro}.
-Resilience is usually organized in phases: preparedness before the event, response during it and recovery afterwards \cite{rak2021disaster}.
-This work belongs to preparedness, more precisely to the interval between the warning and the failure.
+Disasters differ from isolated failures because they affect many geographically correlated components at once \cite{rak2021disaster}, so protection schemes designed for single failures, such as dedicated or shared backup path protection \cite{shen2016survivable}, may not suffice.
+A common abstraction models the disaster as a zone that contains the failed nodes and links \cite{zou2021drama,zou2022dramaplus}.
+Rak et al.\ \cite{rak2021disaster} distinguish proactive methods applied before a disaster, preparedness methods for the short interval between an early alert and the moment the disaster hits, and reactive post-disaster recovery.
+This work belongs to preparedness.
+
+\subsection{Data evacuation in the warning window}
+
+The closest line of work uses the warning itself, for example rapid data evacuation in optical cloud networks \cite{evacuation2015rapid}, early-warning data backup between interconnected datacenters \cite{backup2017earlywarning}, alert-based network reconfiguration \cite{alertbased2020evacuation} and online evacuation of virtual machines \cite{ayoub2021evacuation}.
+These works optimize evacuation over one network, without the competing providers and information-only cooperation of our setting.
 
 \subsection{Post-disaster restoration in EONs}
 
-A large body of work addresses restoration after the failure.
-The DRAMA family of algorithms \cite{zou2022drama,zou2025dramapro} introduces a mitigation zone around the disaster area, in which surviving lightpaths can be degraded in a controlled way to free spectrum and increase the number of recovered demands, combined with penalty-aware routing and adaptive modulation.
-These algorithms assume a single operator with a global view of the network and act after the failure; our problem has several providers with local views and takes place before it.
+The DRAMA family of algorithms \cite{zou2021drama,zou2022dramaplus,zou2025dramapro} defines a mitigation zone around the disaster zone.
+Only traffic inside the mitigation zone may be reconfigured, with degraded service, to make room for the traffic hit by the disaster, and the algorithms minimize a penalty for service degradation.
+These algorithms act after the failure; our problem takes place before it, with several providers that have local views.
 
 \subsection{Cooperation across administrative domains}
 
 Disasters affect the transport network and the datacenters that depend on it at the same time, which has motivated cooperation between datacenter providers and optical carriers.
-Sahoo et al.\ \cite{sahoo2022cooperation} show that a mediator through which datacenter providers and carriers share abstracted topology information and jointly decide how to use surviving resources substantially improves recovery compared with non-cooperative operation.
-Our setting shares the idea that cooperation is mediated and limited in what it reveals, but differs in three ways: the actors are providers sharing one optical infrastructure, the action takes place in the warning window, and cooperation never transfers the right to allocate spectrum.
+Sahoo et al.\ \cite{sahoo2022cooperation,sahoo2025postdisaster} restore datacenter services after a disaster through a third-party mediator, the Provider Neutral Exchange, which balances resources among datacenter providers that compete for them.
+Carriers evaluate the providers' requests and return feedback without disclosing confidential information such as their topology, and the cooperation improves service restoration.
+Our setting shares the idea that cooperation is limited in what it reveals, but differs in three ways: it takes place in the warning window, no entity decides or balances allocations, and each provider acts only by restricting its own traffic.
 
 \subsection{Information disclosed by infrastructure owners}
 
-Our mechanism assumes that the owner of the optical infrastructure discloses, for each link, how many providers use it.
-Related disclosures already exist.
-Carriers tag links with shared risk link groups (SRLGs) so that customers can request paths that do not share a fiber or duct, and their collection along a path is standardized \cite{rfc8001}.
-In spectrum-as-a-service offerings, the owner of an open line system knows every tenant of every link.
-A per-link tenant count, revealing a number but not identities, is a smaller disclosure than either; still, it is an assumption of this work and not an established practice.
+Our mechanism assumes that the infrastructure owner discloses, for each link, either how many providers use it or, when queried by a cooperating group, whether that link is used only by members of the group.
+No standard or established practice provides this disclosure, so it is an assumption of this work.
+It is plausible because the infrastructure owner already holds the information and related disclosures exist.
+Shared risk link group (SRLG) information can be collected along a path \cite{rfc8001}, although it is normally not shared with client networks.
+Frameworks for abstraction and control of multi-customer transport networks expose selected, abstracted information to each customer \cite{rfc8453}.
+Operators also offer optical spectrum as a service on open line systems \cite{kaeval2022osaas}; such services usually give each tenant its own part of the spectrum, whereas our model assumes that the spectrum of a link is shared by all providers that use it.
+Neither form of the disclosure names tenants directly, but neither is anonymous: a group that contains all providers but one can deduce the overlay of the remaining provider from the counts.
 
 %======================================================================
 \section{Problem formulation}
@@ -119,24 +156,30 @@ A per-link tenant count, revealing a number but not identities, is a smaller dis
 \subsection{Physical network and spectrum}
 
 The physical topology is an undirected weighted graph $G=(V,E)$ with link length $\ell:E\to\mathbb{R}_{>0}$.
-Each link $e$ carries $F$ frequency slots, with occupancy vector $\mathbf{s}_e(t)\in\{0,1\}^F$.
+Each link $e$ carries $F$ frequency slots of equal width, with occupancy vector $\mathbf{x}_e(t)\in\{0,1\}^F$; with the most robust modulation format, one slot carries $C$~Gb/s.
 
 \begin{definition}[Spectral allocation]
-An allocation for a request $r$ of bit rate $b_r$ is a pair $(p,[f_\mathrm{s},f_\mathrm{e}])$, where $p$ is a simple path and
+An allocation for a request $r$ of bit rate $b_r$ is a pair $(p,[f_\mathrm{s},f_\mathrm{e}])$, where $p$ is a simple path and $[f_\mathrm{s},f_\mathrm{e}]$ is a block of contiguous slots, the same on every link of $p$.
+The number of slots in the block is
 \begin{equation}
-  n(r,p) = f_\mathrm{e}-f_\mathrm{s}+1 = \left\lceil \frac{b_r}{m(\ell(p))\,\Delta} \right\rceil
+  n(r,p) = f_\mathrm{e}-f_\mathrm{s}+1 = \left\lceil \frac{b_r}{m(\ell(p))\,C} \right\rceil ,
 \end{equation}
-contiguous slots are used on every link of $p$, with $\ell(p)=\sum_{e\in p}\ell(e)$, $\Delta$ the capacity of one slot at the most robust format, and the modulation factor
+where $\ell(p)=\sum_{e\in p}\ell(e)$ is the length of the path and $m$ is the modulation factor
 \begin{equation}
-  m(\delta)=
+  m(\ell)=
   \begin{cases}
-    4 & \delta\le 500\ \text{km},\\
-    3 & \delta\le 1000\ \text{km},\\
-    2 & \delta\le 2000\ \text{km},\\
+    4 & \ell\le 500\ \text{km},\\
+    3 & \ell\le 1000\ \text{km},\\
+    2 & \ell\le 2000\ \text{km},\\
     1 & \text{otherwise.}
   \end{cases}
 \end{equation}
 \end{definition}
+
+In words, $n(r,p)$ is the number of adjacent slots that request $r$ occupies on every link of path $p$: it grows with the bit rate of the request and shrinks as the modulation becomes more efficient.
+The factor $m(\ell(p))$ is the capacity of a slot on path $p$ relative to the most robust format, and it decreases with the length of the path \cite{jinno2010distance}.
+Its four levels can be read as formats carrying one to four bits per symbol (for example, BPSK, QPSK, 8-QAM and 16-QAM); the distance thresholds are a simplified reach model adopted in this work.
+For the same bit rate, a path with factor $m$ therefore needs about $1/m$ as many slots as a path long enough to require the most robust format.
 
 A request is accepted at time $t$ if such a pair exists with every slot free on every link of $p$ and no link of $p$ failed; otherwise it is blocked.
 There is no queueing and no preemption: an allocation is released only at the end of its holding time or when a link of its path fails.
@@ -145,7 +188,7 @@ There is no queueing and no preemption: an allocation is released only at the en
 
 A set $\mathcal{I}=\{1,\dots,I\}$ of providers shares $G$.
 Provider $i$ operates an overlay $G_i=(V_i,E_i)$ with $V_i\subseteq V$ and $E_i\subseteq E$, and every request of $i$ must be routed inside $G_i$.
-Overlays overlap but decisions do not: provider $i$ never allocates spectrum on behalf of provider $j$.
+Overlays overlap, yet each provider decides alone.
 The spectrum of a link is a single resource shared by all providers that use it.
 
 \begin{definition}[Link sharing]
@@ -156,19 +199,56 @@ The number of providers that use link $e$ is
 \end{definition}
 
 \subsection{Disaster and timeline}
+\label{sec:timeline}
 
-A non-empty set of nodes $V_d\subseteq\bigcap_{i}V_i$ fails at time $t_d$, together with every incident link.
+A non-empty set of nodes $V_d\subseteq\bigcap_{i}V_i$ fails, together with its incident links, and $t_d$ is the time of the first failure.
 Choosing $V_d$ inside the intersection of the overlays makes the threat relevant to every provider.
 Provider $i$ discovers the threat at its own time $\tau_i<t_d$, without synchronization with the others, and its warning window is $[\tau_i,t_d)$.
 Before $\tau_i$, it operates normally; from $\tau_i$ on, it switches to disaster-aware routing and starts migrating; after $t_d$, whatever was not migrated is lost.
+\emph{Disaster-aware routing} keeps the traffic that does not need $V_d$ away from it: requests that neither start nor end in $V_d$ use only paths that avoid it, while migration, which starts in $V_d$, may use any path of the overlay.
+Figure~\ref{fig:timeline} illustrates the timeline: the warning windows have different lengths, and the providers that discover the threat late have little time left to migrate.
+
+\begin{figure}[!t]
+\centering
+\begin{tikzpicture}[x=1.15cm,y=0.55cm,font=\small]
+  % time axis
+  \draw[-{Stealth[length=2.2mm]}] (0,0) -- (11.2,0) node[right] {$t$};
+  \draw (0,0.15) -- (0,-0.15) node[below] {$0$};
+  % discovery times
+  \foreach \x in {3.6,4.3,5.0,5.4,6.1} {
+    \draw (\x,0.15) -- (\x,-0.15);
+  }
+  \node[below] at (3.6,-0.15) {$\tau_{(1)}$};
+  \node[below] at (6.1,-0.15) {$\tau_{(5)}$};
+  \node[below] at (4.85,-0.25) {$\cdots$};
+  % failure
+  \draw[very thick,red!75!black] (9.6,0.5) -- (9.6,-0.5) node[below] {$t_d$};
+  % provider windows
+  \foreach \x/\y/\l in {3.6/1.2/1,4.3/2.1/2,5.0/3.0/3,5.4/3.9/4,6.1/4.8/5} {
+    \fill[blue!12] (\x,\y-0.3) rectangle (9.6,\y+0.3);
+    \draw[blue!60!black] (\x,\y-0.3) rectangle (9.6,\y+0.3);
+    \draw[gray!70] (0,\y) -- (\x,\y);
+    \node[left,font=\scriptsize] at (0,\y) {provider \l};
+  }
+  \node[font=\scriptsize,gray!50!black] at (1.8,5.55) {normal operation};
+  \node[font=\scriptsize,blue!50!black,align=center] at (7.6,5.75) {warning window $[\tau_i,t_d)$:\\[-1pt] disaster-aware routing, migration};
+  \node[font=\scriptsize,red!60!black,align=left,anchor=west] at (9.75,3.0) {$V_d$ fails;\\[-1pt] data not yet\\[-1pt] migrated is lost};
+\end{tikzpicture}
+\caption{Timeline. Providers discover the threat at independent times $\tau_i$ ($\tau_{(j)}$ is the $j$-th discovery) and migrate until the failure at $t_d$. A member of $K$ joins the cooperation, and its migration path becomes protectable, at its own $\tau_i$. All metrics except the spectrum usage $U$ are measured over the warning windows.}
+\label{fig:timeline}
+\end{figure}
 
 \subsection{Migration}
 
 Provider $i$ holds critical data at $s_i\in V_d$ and migrates it to a destination $d_i\in V_i\setminus V_d$.
-In our instances, $d_i$ is the node of $G_i$ farthest from $V_d$ in hops, which keeps the data away from a possible extension of the damaged area.
-Let $D_i$ be the volume to migrate and $M_i(t)$ the volume carried by migration requests accepted until $t$.
-Migration requests originate at $s_i\in V_d$, so they must use the part of $G_i$ that is about to fail, while background traffic that must survive the failure should avoid it.
-Both compete for the spectrum of the links of $G_i$ that leave $V_d$, which are also typically shared with other providers.
+In our instances, $d_i$ is the node of $G_i$ farthest from $V_d$ in shortest-path length (in km) over the physical topology, which keeps the data away from a possible extension of the damaged area.
+Migration is carried by many connection requests, each held for a holding time of mean $h$.
+Let $D_i$ be the volume to migrate and $M_i(t)$ the volume credited to the migration requests accepted until $t$, where each accepted request of bit rate $b_r$ is credited with $b_r h$ when it is accepted.
+Requests accepted less than about $h$ before $t_d$ are credited in full although the failure interrupts them, which overstates $M_i(t_d)$ by a relative amount of at most about $h/(t_d-\tau_i)$, below 1\%.
+
+Migration requests originate at $s_i\in V_d$, so they must use the links incident to $V_d$, which we call \emph{exit links}.
+Once a provider has discovered the threat, its background requests no longer pass through $V_d$; only requests that start or end there still use the exit links.
+Migration thus competes with other migrations on the exit links and with background traffic along the rest of its path. In the two scenarios we inspected with all providers cooperating, migration holds most of the occupied spectrum on the exit links (Section~\ref{sec:gain}).
 
 \subsection{Independence and cooperation}
 
@@ -180,32 +260,36 @@ The decisions of $i$ depend only on $G_i$, on the occupancy of the links it uses
 
 \begin{definition}[Cooperation]
 A subset $K\subseteq\mathcal{I}$ is \emph{cooperating} if its members share information about their overlays and migrations.
-Members of $\mathcal{I}\setminus K$ keep a strictly local view.
+Providers outside $K$ (\emph{outsiders}) keep a strictly local view.
 Cooperation does not merge overlays and does not transfer the right to allocate spectrum: each $i\in K$ keeps acting only on $G_i$.
-A provider joins the cooperation at its discovery time $\tau_i$.
+A provider joins the cooperation at its discovery time $\tau_i$; the membership of $K$ is agreed before the warning.
 \end{definition}
 
 \subsection{Metrics}
 
-Let $\mathcal{R}_\mathrm{n}$ and $\mathcal{R}_\mathrm{m}$ be the background and migration requests.
-Blocking rates and availability are
-\begin{equation}
+Except for the spectrum usage $U$ defined below, all metrics are measured over the warning windows.
+Let $\mathcal{R}_\mathrm{n}$ be the background requests of each provider $i$ created in its own window $[\tau_i,t_d)$, and $\mathcal{R}_\mathrm{m}$ the migration requests, which are all created in that window by definition. Restricted to the requests of one provider $i$, the same rates are written $B_{\mathrm{n},i}$ and $B_{\mathrm{m},i}$.
+The background, migration and overall blocking rates are
+\begin{gather}
   B_\mathrm{n}=\frac{|\{r\in\mathcal{R}_\mathrm{n}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{n}|},\qquad
-  B_\mathrm{m}=\frac{|\{r\in\mathcal{R}_\mathrm{m}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{m}|},\qquad
-  A=1-B .
-\end{equation}
+  B_\mathrm{m}=\frac{|\{r\in\mathcal{R}_\mathrm{m}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{m}|},\\
+  B=\frac{|\{r\in\mathcal{R}_\mathrm{n}\cup\mathcal{R}_\mathrm{m}:\ r \text{ blocked}\}|}{|\mathcal{R}_\mathrm{n}\cup\mathcal{R}_\mathrm{m}|},
+\end{gather}
+and the corresponding availability is $A=1-B$ (and likewise $A_\mathrm{n}$ and $A_\mathrm{m}$).
 Availability here means one minus the blocking rate, not classical two-terminal availability.
+These rates count requests; since large requests are harder to place, they do not measure blocked bit rate.
 The migrated fraction of provider $i$ and its mean over a set of providers $S$ are
 \begin{equation}
   \eta_i=\min\!\left(1,\frac{M_i(t_d)}{D_i}\right),\qquad
   \eta(S)=\frac{1}{|S|}\sum_{i\in S}\eta_i .
 \end{equation}
-We report $\eta(\mathcal{I})$ for the whole network, $\eta(K)$ for the cooperating providers and $\eta(\mathcal{I}\setminus K)$ for the others, together with the background blocking of each group.
+We report $\eta(\mathcal{I})$ for the whole network, $\eta(K)$ for the members and $\eta(\mathcal{I}\setminus K)$ for the outsiders (reported only for $K\neq\mathcal{I}$), together with the overall, background and migration blocking of each group.
+Finally, the spectrum usage $U$ is the fraction of the slot-time of all links occupied by accepted connections over $[\min_i\tau_i,t_d)$; a reservation that is not used by migration shows up as a lower $U$.
 
 \subsection{Problem statement}
 
+\noindent\begin{minipage}{\linewidth}
 \begin{problem}[Migration in the warning window]
-\label{prob:main}
 \hfill
 \begin{description}[leftmargin=1.6cm,style=nextline]
   \item[Given]
@@ -214,30 +298,88 @@ We report $\eta(\mathcal{I})$ for the whole network, $\eta(K)$ for the cooperati
   a disaster set $V_d\subseteq\bigcap_i V_i$ failing at $t_d$;
   for each provider, a volume $D_i$ at $s_i\in V_d$, a destination $d_i$ and a discovery time $\tau_i<t_d$;
   background traffic on every overlay;
+  a cooperating subset $K$ that exchanges information;
   contiguous and continuous spectrum allocation with distance-dependent modulation.
   \item[Find]
-  for each provider, independently and from $\tau_i$ on, path and spectrum allocations in $G_i$ for its migration and its background traffic; and a cooperating subset $K$ that exchanges information.
+  for each provider, independently and from $\tau_i$ on, path and spectrum allocations in $G_i$ for its migration and its background traffic.
   \item[Such that]
-  the migrated fraction $\eta(\mathcal{I})$ is maximized, cooperating providers migrate at least as much as they would alone, and the background blocking $B_\mathrm{n}$ is contained.
+  the migrated fraction $\eta(\mathcal{I})$ is as large as possible for a given increase in the background blocking $B_\mathrm{n}$.
   \item[Under]
   independent action, independent discovery, local views by default, information-only cooperation and a single spectrum per link shared by all of its users.
 \end{description}
 \end{problem}
+\end{minipage}
+\medskip
+
+We evaluate every subset $K$, since the problem does not assume which providers agree to cooperate.
+We also ask whether a provider migrates more by joining a group; the results evaluate this property, and the mechanism does not guarantee it.
 
 %======================================================================
 \section{Cooperative corridor protection}
 \label{sec:mechanism}
 %======================================================================
 
-Migration and background traffic compete on the links that leave the disaster site.
-A provider can favor its own migration by keeping its own background traffic out of part of the spectrum on its migration path.
-If another provider also uses those links, however, the spectrum freed this way may simply be taken by the other provider's background traffic, which no one can restrict.
-Protection is therefore only worthwhile on links where every user is willing to restrict itself.
+As noted in the introduction, the spectrum a provider frees on a shared link by restricting its own background traffic may be taken by another provider's traffic.
+Protection is therefore worthwhile only on links where every user is willing to restrict itself.
+Figure~\ref{fig:mechanism} shows how a group widens the set of such links and how a protected link divides its spectrum.
+
+\begin{figure}[!t]
+\centering
+\begin{subfigure}[b]{0.58\textwidth}
+\centering
+\begin{tikzpicture}[font=\small,
+    nd/.style={circle,draw,thick,minimum size=7mm,inner sep=0pt},
+    prot/.style={line width=2.4pt,blue!65!black},
+    shared/.style={line width=1.2pt,gray!60,dashed},
+    lab/.style={font=\scriptsize,fill=white,inner sep=1pt,text=black}]
+  \node[nd,fill=red!20,draw=red!70!black] (s) at (0,0) {$s$};
+  \node[font=\scriptsize,red!60!black,left=2pt of s] {$V_d$};
+  \node[nd] (w) at (2.7,0) {$w$};
+  \node[nd] (a) at (4.6,1.5) {$u$};
+  \node[nd] (b) at (4.6,-1.5) {$v$};
+  \node[nd,fill=green!15] (d) at (7.0,0) {$d_A$};
+  \draw[shared] (s) -- node[lab,above=2pt] {$\sigma{=}3$: A, B, C} (w);
+  \draw[prot] (w) -- node[lab,sloped,above=2pt] {$\sigma{=}2$: A, B} (a);
+  \draw[prot] (a) -- node[lab,sloped,above=2pt] {$\sigma{=}1$: A} (d);
+  \draw[shared] (w) -- node[lab,sloped,below=2pt] {$\sigma{=}2$: B, C} (b);
+  \draw[shared] (b) -- node[lab,sloped,below=2pt] {$\sigma{=}2$: A, C} (d);
+  \node[font=\scriptsize,align=left,anchor=north west] at (-0.6,-2.35)
+    {Providers A, B, C; $K=\{A,B\}$; main path of $A$: $s,w,u,d_A$.\\
+     \textcolor{blue!65!black}{\rule[0.5ex]{4mm}{2pt}} exclusive to $K$: protected\\
+     \textcolor{gray}{\rule[0.5ex]{1.5mm}{1pt}\,\rule[0.5ex]{1.5mm}{1pt}} shared with $C$: not protected};
+\end{tikzpicture}
+\caption{Which links are protected}
+\end{subfigure}\hfill
+\begin{subfigure}[b]{0.38\textwidth}
+\centering
+\begin{tikzpicture}[font=\small,x=0.42cm,y=0.42cm,
+    bg/.style={fill=orange!55},
+    mig/.style={fill=blue!35,postaction={pattern=dots,pattern color=blue!70!black}}]
+  % spectrum bar of link (w,u), F slots, slot 1 at the bottom
+  \foreach \i in {0,...,15} \draw[gray!60] (0,\i) rectangle (1.6,\i+1);
+  \foreach \i in {0,1,6,7,8} \fill[bg] (0,\i) rectangle (1.6,\i+1);
+  \foreach \i in {2,3,4} \fill[mig] (0,\i) rectangle (1.6,\i+1);
+  \fill[pattern=north east lines,pattern color=blue!70!black] (0,11) rectangle (1.6,16);
+  \draw[thick] (0,0) rectangle (1.6,16);
+  \draw[decorate,decoration={brace,amplitude=4pt}] (1.8,16) -- node[right=4pt,font=\scriptsize,align=left] {$R_e(t)$ reserved:\\ closed to background} (1.8,11);
+  \draw[decorate,decoration={brace,amplitude=4pt}] (1.8,10.9) -- node[right=4pt,font=\scriptsize,align=left] {background of\\ $A$ and $B$\\ and migration} (1.8,0);
+  \node[font=\scriptsize,above] at (0.8,16) {slot $F$};
+  \node[font=\scriptsize,below] at (0.8,0) {slot 1};
+  \fill[bg] (-0.2,-2.0) rectangle (0.4,-1.4);
+  \node[font=\scriptsize,anchor=west] at (0.4,-1.7) {background};
+  \fill[mig] (5.0,-2.0) rectangle (5.6,-1.4);
+  \node[font=\scriptsize,anchor=west] at (5.6,-1.7) {migration};
+\end{tikzpicture}
+\caption{Spectrum of a protected link}
+\end{subfigure}
+\caption{Cooperative corridor protection. (a) The infrastructure owner discloses only $\sigma(e)$; a link is exclusive to $K$ when the number of members of $K$ that use it equals $\sigma(e)$. Alone, $A$ could prove only $(u,d_A)$ exclusive; with $B$ in the group, $(w,u)$ also becomes protectable, while the exit link $(s,w)$ stays unprotected because $C$ uses it. (b) On a protected link, background requests of the members may not use the top $R_e(t)$ slots until $t_d$; migration may use any free slot.}
+\label{fig:mechanism}
+\end{figure}
 
 \subsection{Knowledge model and exclusive links}
 
-We assume that the infrastructure owner discloses $\sigma(e)$ for every link: a count, not the identities of the tenants.
-Cooperating providers share their overlays, so for each link they know how many of \emph{them} use it.
+We assume that the infrastructure owner discloses the count $\sigma(e)$ for every link, without tenant identities, and that the owner and the members report truthfully.
+Members share their overlays, so for each link they know how many of \emph{them} use it.
 
 \begin{definition}[Link exclusive to a group]
 A link $e$ is exclusive to a group $S\subseteq\mathcal{I}$ if
@@ -249,36 +391,46 @@ that is, every provider that uses $e$ belongs to $S$.
 
 A single provider can prove exclusivity only for the links it uses alone ($\sigma(e)=1$).
 A cooperating group can additionally prove it for links shared only among its members, and the number of such links grows with the group.
+Equivalently, the infrastructure owner may answer, for each link, whether it is used only by members of $K$.
+This answer reveals a single bit instead of a count, but the infrastructure owner must then know the membership of $K$ and be queried again whenever a provider joins.
+Both forms identify the same set of exclusive links, so they lead to the same protected links and to the same results.
 
 \subsection{Protected links}
 
-The migration corridor of a provider is the set of links of its first candidate migration paths from $s_i$ to $d_i$ (its main path, or its first three paths, depending on the variant).
-Whenever a provider joins the cooperation, the set of protected links is recomputed: a link is protected if it lies on the corridor of some current member of $K$ and is exclusive to $K$.
+The migration \emph{corridor} of a provider is the set of links on its main migration path, the first candidate path from $s_i$ to $d_i$.
+The set of protected links is recomputed whenever a provider joins. A link is protected if it lies on the corridor of a member that has joined and is exclusive to the members that have joined so far, so a link shared with a member that has not yet discovered the threat stays unprotected until that member joins.
 Protection is active only until $t_d$ and never applies to migration requests.
-Because a protected link is used only by members of $K$, every background request that crosses it belongs to a cooperator: each cooperator restricts only its own traffic, consistently with independent action.
+Because a protected link is used only by members of $K$, every background request that crosses it belongs to a member.
+Each member therefore restricts only its own traffic, as independent action requires, and outsiders are never restricted.
 
-\subsection{Reservation size}
+\subsection{Demand-driven reservation}
 
-On a protected link, background requests may not use the top $R_e(t)$ slots, which remain available to migration.
-Background requests whose only free blocks lie inside the reserved part are blocked or take another candidate path.
-Two rules are studied.
-
-\paragraph{Fixed reservation.}
-$R_e = \lceil \rho F\rceil$ for a fixed fraction $\rho$, on the links of the first three migration paths.
-
-\paragraph{Demand-driven reservation.}
-Each owner $o$ of a protected link reserves, on its main path only, the slots it still needs to finish before the failure:
+On a protected link, background requests may not use the top $R_e(t)$ slots; migration requests may use any free slot.
+Background requests whose only free blocks lie inside the reserved part take another candidate path or are blocked; since a path uses the same slots on every link, a path that crosses several protected links loses the largest of their reservations.
+The \emph{claimants} of a protected link $e$, $\mathrm{cl}(e)$, are the members whose corridor contains it.
+Each claimant $o$ asks for the slots it would need to finish before the failure:
 \begin{equation}
-  R_o(t) = \left\lceil \frac{h\,\bigl(D_o-M_o(t)\bigr)}{(t_d-t)\; m_o\,\Delta} \right\rceil ,
+  \nu_o(t) = \left\lceil \frac{\bigl(D_o-M_o(t)\bigr)^{+}}{(t_d-t)\; m_o\,C} \right\rceil ,
   \qquad
-  R_e(t)=\min\Bigl(F,\ \sum_{o \in \mathrm{owners}(e)} R_o(t)\Bigr),
+  R_e(t)=\min\Bigl(F,\ \max_{o \in \mathrm{cl}(e)} \nu_o(t)\Bigr),
 \end{equation}
-where $h$ is the mean holding time of a request and $m_o$ the modulation factor of the main path.
-The reservation shrinks to zero when the owner finishes and grows if it falls behind.
+where $(x)^{+}=\max(x,0)$ and $m_o$ is the modulation factor of the claimant's main path.
+The ratio $(D_o-M_o(t))^{+}/(t_d-t)$ is the throughput the claimant still needs until $t_d$.
+If migration were accepted at exactly that throughput, its mean occupied bandwidth would equal that throughput by Little's law \cite{little1961}: each request occupies $b_r$ for a mean time $h$ and delivers $b_r h$. Dividing by the capacity of one slot, $m_o C$, converts this bandwidth into slots.
+The rule is a heuristic.
+Migration is offered at more than the needed throughput, so its actual occupancy differs; the window is short and the needed throughput changes over time; and contiguity and the rounding of $n(r,p)$ are ignored.
+The reservation grows when the claimant falls behind, shrinks as it progresses and disappears once it has migrated $D_o$; for a claimant that has not finished, $\nu_o$ grows without bound as $t$ approaches $t_d$, so $R_e$ reaches $F$ before the failure.
+The reservation is large from the start: when a claimant joins, $\nu_o=D_o/((t_d-\tau_o)\,m_o C)$, on average about 60 slots for a main path with modulation factor 2 and 120 slots with factor 1 in our scenarios, that is, 30 to 60\% of $F$.
+A link with several claimants reserves the largest of their needs, which serves the neediest claimant without adding the needs of all; we chose the maximum for simplicity.
+The only additional information a member reveals to the group is its pending volume, which it updates as its migration progresses.
+
+We also evaluate a \emph{fixed reservation} $R_e=\lceil \rho F\rceil$ on the same protected links, for a fraction $\rho$ chosen in advance.
+It does not adapt to the migration and needs no exchange of pending volumes; it is a simpler alternative, and its three values map the trade-off between migration and background blocking.
 
 \subsection{Individual protection}
 
 To separate the effect of cooperation from the effect of knowing $\sigma(e)$, we also evaluate \emph{individual protection}: every provider that has reached its discovery time protects the links of its own corridor that it uses alone, with the same reservation rule, whether or not it cooperates.
+Under cooperative protection, by contrast, outsiders protect nothing.
 
 %======================================================================
 \section{Simulation setup}
@@ -287,103 +439,421 @@ To separate the effect of cooperation from the effect of knowing $\sigma(e)$, we
 
 \subsection{Simulator}
 
-We use a discrete-event simulator written in Python on SimPy and NetworkX.
+We use a discrete-event simulator written in Python with SimPy~\cite{simpy} and NetworkX~\cite{networkx}; its source code is publicly available~\cite{simulator}.
 Traffic is generated before the simulation and stored with the scenario, so every variant of an experiment processes exactly the same requests at the same times.
-Given a scenario and a variant, the simulation is deterministic.
+Since all metrics refer to requests created before $t_d$, each run starts at the beginning of the traffic and ends at $t_d$; requests created afterwards cannot change the measured results.
+All variants behave identically before the first discovery time, so that interval is simulated once per scenario and shared by all runs.
 
-\subsection{Network and spectrum}
+\subsection{Network and scenarios}
 
-The physical topology is a 24-node, 43-link US backbone with link lengths between 250 and 2600~km (median 1000~km).
-Each link has $F=200$ slots and $\Delta=12.5$~Gb/s per slot at modulation factor 1.
+The physical topology is the USNET backbone (Figure~\ref{fig:topology}), with the link lengths of the topology file in the simulator repository~\cite{simulator}; Table~\ref{tab:params} lists the simulation parameters.
 The modulation factor of a path follows the distance thresholds of Section~\ref{sec:problem}; with these link lengths, most paths use factor 1 or 2.
-Every provider precomputes, for each pair of nodes of its overlay, the $k$ shortest paths by length ($k=10$ for disaster-aware routing).
+Every provider precomputes the $k$ shortest paths by length between each pair of nodes of its overlay: 3 for normal operation and 10 for the warning window.
 
-\subsection{Providers}
+We generate 10 base scenarios with independent random draws of overlays, failure and discovery times and traffic.
+The disaster node is node 9 in all of them, chosen by a balanced minimum-cut analysis of the topology, and the overlays are redrawn until all of them contain it.
+Each overlay is the subgraph induced by the nodes within two hops of a random center plus a random part of the nodes at three hops; all overlays share at least one node and together cover every node.
 
-$I=5$ providers are generated as random connected overlays of the topology; all overlays share at least one node and together cover every node.
-In the reference scenario most links are used by one or two providers: 12 links have $\sigma(e)=1$, 21 have $\sigma(e)=2$, 4 have $\sigma(e)=3$, 5 have $\sigma(e)=4$ and one link is unused.
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=0.85\textwidth]{figures/topology.pdf}
+\caption{USNET topology used in all scenarios, with link lengths in km (layout not to scale). Node 9, the disaster node and the site of every datacenter, and its links are in red; all of them are unusable once node 9 fails.}
+\label{fig:topology}
+\end{figure}
 
-\subsection{Traffic}
+\begin{table}[!tb]
+\centering
+\small
+\caption{Simulation parameters. On the failure and lead-time rows, ranges in parentheses are the values realized across the 10 base scenarios.}
+\label{tab:params}
+\begin{tabular}{@{}ll@{}}
+\toprule
+Parameter & Value \\
+\midrule
+Topology & USNET, 24 nodes, 43 links, 250--2600~km (median 1000~km) \\
+Slots per link, slot capacity & $F=200$, $C=12.5$~Gb/s at modulation factor 1 \\
+Candidate paths & $k=3$ before $\tau_i$, $k=10$ from $\tau_i$ on (all variants) \\
+Providers, base scenarios & $I=5$, 10 \\
+Background arrivals & Poisson, about 156 requests/s over 1200~s \\
+Offered background load & about 156~Erlangs (78 and 117 in Section~\ref{sec:load}) \\
+Bit rate & uniform on $\{100,150,\dots,400\}$~Gb/s \\
+Holding time & normal, mean $h=1$~s, s.d.\ 0.1~s \\
+Failure events & node 9 and a random subset of its links; \\
+ & normal, mean 600~s, s.d.\ 30~s; $t_d$ is the earliest event (531--589~s) \\
+Lead time $t_d-\tau_i$ & normal, mean 300~s, s.d.\ 45~s (206--372~s) \\
+Migration volume & $D_i\approx 4.4\times 10^5$~Gb per provider \\
+Migration requests & about 15--17 per second per provider (base scenario 0) \\
+\bottomrule
+\end{tabular}
+\end{table}
 
-Background requests arrive as a Poisson process over a 1200~s horizon at a rate chosen for a target network utilization of 75\%, about 156 requests per second (about $1.9\times 10^5$ requests per scenario).
-Each request belongs to one provider and has its source and destination inside that provider's overlay; providers with larger and less shared overlays receive a larger share of the requests.
-Bit rates are drawn uniformly from $\{100,150,\dots,400\}$~Gb/s and holding times from a normal distribution with mean 1~s and standard deviation 0.1~s.
+\subsection{Traffic, disaster and migration}
 
-\subsection{Disaster and migration}
+The background requests of each provider have their source and destination inside its overlay; providers with larger and less shared overlays receive a larger share of the requests.
+The background rate was set for a nominal utilization of 75\%, computed from an assumed mean path length and modulation.
+The first failure event fixes $t_d$; later events fall after $t_d$, when no metric is measured.
+Warning windows last 298~s on average, and the forecast is perfect: providers know $V_d$ and $t_d$ exactly once they discover the threat.
 
-The disaster is a single node chosen in the intersection of the overlays, which fails at $t_d\approx 600$~s ($\pm5\%$) and stays down for about 200~s.
-Each provider discovers the threat at $\tau_i\approx 300$~s ($\pm15\%$).
-Its datacenter is at the failing node and its destination is the farthest node of its overlay in hops.
-From $\tau_i$ until $t_d$, the provider issues migration requests from $s_i$ to $d_i$ at a constant mean rate (about 15--17 requests per second per provider in the reference scenario), with the same bit-rate and holding-time distributions as background traffic, and the volume to migrate is $D_i\approx 4.4\times 10^5$~Gb.
-Migration requests keep being issued until $t_d$ even after $D_i$ is reached, so $\eta_i$ is capped at~1.
+Every datacenter is at node 9, and each provider migrates to the node of its overlay farthest from node 9 in shortest-path length (km); two providers may share the same destination.
+Migration requests have the same bit-rate and holding-time distributions as background traffic.
+The offered migration is on average about 2.9 times the volume needed (between 1.7 and 3.7 times across providers), and migration accounts for 35\% of the requests in the warning windows.
+Migration requests keep being issued until $t_d$ even after $D_i$ is reached, so $\eta_i$ is capped at~1, and a high migration blocking $B_\mathrm{m}$ does not by itself mean a shortfall.
+
+\subsection{Load}
+
+The network operates under heavy load.
+In the reference, the overall blocking $B$ lies between 0.41 and 0.50 across scenarios and the migration blocking $B_\mathrm{m}$ between 0.58 and 0.70.
+The results describe this regime and should not be generalized to networks with low blocking.
+
+The overload comes from both background and migration traffic. To test how the results depend on the background part of the load, we also run the whole experiment with 50\% and 75\% of the background requests of each base scenario (about 78 and 117~Erlangs).
+Each request is kept or dropped independently, so the background remains a Poisson process, and the requests kept at 50\% are a subset of those kept at 75\%. The migration traffic, the overlays and the failure and discovery times are unchanged.
+Unless stated otherwise, results refer to the full load of about 156~Erlangs.
 
 \subsection{Routing}
 
-Before $\tau_i$, provider $i$ routes with First-Fit over the precomputed paths of its overlay.
-From $\tau_i$ on, it switches to disaster-aware First-Fit: background requests use paths that avoid $V_d$, and migration requests, which originate in $V_d$, use the shortest paths of the full overlay.
+Before $\tau_i$, provider $i$ routes with First-Fit over its 3 shortest paths.
+From $\tau_i$ on, it uses its 10 shortest paths and, in every variant except the First-Fit baseline, switches to disaster-aware First-Fit (Section~\ref{sec:timeline}).
 Candidate paths are tried in order of length, and the first one with a free contiguous block large enough is used.
 Corridor protection, when enabled, removes the reserved slots of protected links from the blocks available to background requests.
 
-\subsection{Compared variants}
+\subsection{Compared variants and experimental design}
 
-\begin{center}
+Table~\ref{tab:variants} lists the compared variants.
+For each of the 10 base scenarios, the cooperative demand-driven reservation is evaluated for all $2^I=32$ cooperating subsets $K\subseteq\mathcal{I}$, from no cooperation to full cooperation.
+The order in which members join is fixed by their discovery times, so we enumerate subsets.
+Variants that do not depend on $K$ produce exactly the same simulation for every subset.
+They are run once and their per-provider results are relabeled for each $K$; we verified this equivalence by running individual protection for both $K=\emptyset$ and $K=\mathcal{I}$.
+The fixed reservation is evaluated only with all providers cooperating.
+In total, each base scenario requires $32+3+3=38$ runs per load: the cooperative subsets, the three variants that do not depend on $K$, and the three fixed reservations.
+Finally, a \emph{shared warning} repeats the reference, individual protection and the cooperative reservation with $K=\mathcal{I}$ when the first provider to discover the threat warns the others: every provider then reacts at $\min_i\tau_i$, and its migration stream, with the same rate and distributions, starts there, so the window of every provider except the first grows while its volume $D_i$ is unchanged.
+
+\begin{table}[htbp]
+\centering
 \small
-\begin{tabular}{@{}lll@{}}
+\caption{Compared variants.}
+\label{tab:variants}
+\begin{tabular}{@{}llc@{}}
 \toprule
 Variant & Protection & Depends on $K$ \\
 \midrule
 First-Fit & none, not disaster-aware & no \\
-No reservation (reference) & none, disaster-aware First-Fit & no \\
-Fixed $\rho$, cooperative & links exclusive to $K$, $\rho\in\{10,25,40,55,70,85\}\%$ & yes \\
-Fixed $\rho$, individual & links used by one provider only & no \\
-Demand-driven, cooperative & links exclusive to $K$, main path & yes \\
+Reference & none, disaster-aware First-Fit & no \\
 Demand-driven, individual & links used by one provider only, main path & no \\
+Demand-driven, cooperative & links exclusive to $K$, main path & yes \\
+Fixed $\rho$, cooperative & links exclusive to $K$, main path, $\rho\in\{25,55,85\}\%$ & yes (run for $K=\mathcal{I}$) \\
 \bottomrule
 \end{tabular}
-\end{center}
+\end{table}
 
-\subsection{Experimental design}
-
-For each base scenario, every variant is evaluated for all $2^I=32$ cooperating subsets $K\subseteq\mathcal{I}$, from no cooperation to full cooperation.
-The order in which members join is fixed by their discovery times, so subsets and not permutations are enumerated.
-Variants that do not depend on $K$ produce exactly the same simulation for every subset; they are run once and their per-provider results are relabeled for each $K$, which we verified by running one of them for both $K=\emptyset$ and $K=\mathcal{I}$.
-Every variant is compared with the reference for the same scenario and the same $K$, so that differences reflect the protection mechanism only.
-The results reported here use \todo{1 / 10} base scenario(s).
+Every variant is compared with the reference (disaster-aware First-Fit without reservation) for the same scenario and the same $K$, so that differences reflect the variant only.
+We report means and standard deviations over the 10 base scenarios, and differences in percentage points (pp).
+Confidence intervals are 95\% paired $t$ intervals over the 10 scenarios.
+The subsets of a scenario share members and links, so statistics pooled over subsets are not independent observations: the effective sample size remains 10 scenarios.
+An earlier version of the mechanism also reordered candidate paths with cooperative link weights; it gave no aggregate gain and is not reported.
 
 %======================================================================
 \section{Results}
 \label{sec:results}
 %======================================================================
 
-\todo{Pending the final runs without cooperative weights (Experiment\_final.ipynb). Planned content:}
-\begin{itemize}[leftmargin=1.2em]
-  \item \todo{Disaster-aware First-Fit vs First-Fit: migrated fraction and blocking.}
-  \item \todo{Migrated fraction of all providers vs $|K|$ for each reservation rule, cooperative and individual, as gains over the reference.}
-  \item \todo{Members of $K$ vs providers outside $K$: migrated fraction and change in background blocking.}
-  \item \todo{Where cooperative protection overtakes individual protection, and its relation to the number of links each can prove exclusive.}
-  \item \todo{Fixed vs demand-driven reservation: migration gain per point of background blocking.}
-\end{itemize}
+After establishing the reference, the results answer six questions: how much the group gains compared with acting alone, whether a provider gains by joining, which reservation rule performs better, who bears the cost, whether these results depend on the background load, and what a shared warning adds.
+Unless stated otherwise, numbers are means over the 10 base scenarios, with the standard deviation after $\pm$.
+Table~\ref{tab:main} summarizes the results with all providers cooperating.
+
+\begin{table}[!t]
+\centering
+\small
+\caption{Results with all providers in $K$ ($K=\mathcal{I}$), for the cooperative variants and for the variants that do not depend on $K$. The reference is disaster-aware First-Fit without reservation. $\eta$, $\Delta\eta$ and $\Delta B_\mathrm{n}$: mean $\pm$ standard deviation over the 10 base scenarios; other columns: mean. $\Delta\eta$ and $\Delta B_\mathrm{n}$ are paired differences with the reference, in percentage points. The demand-driven variant, used in the subset experiments, is in bold.}
+\label{tab:main}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabular}{@{}lccccccc@{}}
+\toprule
+Variant & $\eta$ & $B_\mathrm{n}$ & $B_\mathrm{m}$ & $B$ & $U$ & $\Delta\eta$ (pp) & $\Delta B_\mathrm{n}$ (pp) \\
+\midrule
+First-Fit & $0.594\pm0.096$ & $0.336$ & $0.676$ & $0.455$ & $0.437$ & $-7.7\pm3.1$ & $-3.2\pm0.7$ \\
+Reference & $0.672\pm0.081$ & $0.368$ & $0.638$ & $0.463$ & $0.442$ & --- & --- \\
+\midrule
+Demand-driven, individual & $0.685\pm0.087$ & $0.373$ & $0.633$ & $0.464$ & $0.442$ & $+1.3\pm1.8$ & $+0.5\pm0.9$ \\
+\textbf{Demand-driven, cooperative} & $0.760\pm0.101$ & $0.401$ & $0.604$ & $0.473$ & $0.448$ & $+8.8\pm4.8$ & $+3.3\pm2.4$ \\
+\midrule
+Fixed $\rho=25\%$, cooperative & $0.697\pm0.084$ & $0.376$ & $0.628$ & $0.464$ & $0.443$ & $+2.6\pm1.4$ & $+0.8\pm0.6$ \\
+Fixed $\rho=55\%$, cooperative & $0.730\pm0.094$ & $0.389$ & $0.614$ & $0.468$ & $0.446$ & $+5.8\pm3.1$ & $+2.1\pm1.4$ \\
+Fixed $\rho=85\%$, cooperative & $0.758\pm0.103$ & $0.410$ & $0.596$ & $0.476$ & $0.451$ & $+8.6\pm4.7$ & $+4.2\pm3.0$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Disaster-aware routing}
+
+Disaster-aware routing alone, the reference, migrates $\eta=0.672$ of the data on average, against $0.594$ for plain First-Fit over the same 10 shortest paths, without avoiding $V_d$.
+The gain is $+7.7\pm3.1$~pp (95\% confidence interval $5.5$ to $9.9$~pp) and is positive in all 10 scenarios; at 117 and 78~Erlangs it is $+6.8$ and $+4.6$~pp, also positive in all 10 scenarios.
+The background blocking of the reference is 3.2~pp higher than that of First-Fit, and its overall blocking $B$ is 0.7~pp higher.
+Because each provider can adopt it alone, disaster-aware routing is the reference; the rest of this section asks what protection and cooperation add to it.
+
+\subsection{The gain from protection grows with the group}
+\label{sec:gain}
+
+\begin{figure}[!t]
+\centering
+\includegraphics[width=\textwidth]{figures/gain_vs_k.pdf}
+\caption{(a) Gain in the migrated fraction of the whole network, $\eta(\mathcal{I})$, over the reference (disaster-aware First-Fit without reservation), as a function of the number of members, averaged over all subsets of each size; the bands show the standard deviation over the 10 base scenarios. Individual protection does not depend on $K$. (b) Network gain of cooperative protection against the number of protected links, for every non-empty subset and scenario; marker shape and color give $|K|$, and the link counts are jittered horizontally for legibility.}
+\label{fig:gain}
+\end{figure}
+
+Figure~\ref{fig:gain}(a) shows the gain in migrated fraction over the reference, as a function of the number of members, averaged over all subsets of each size.
+For the whole network, $\eta(\mathcal{I})$, the gain of cooperative protection grows faster than the group: $+0.3$, $+0.7$, $+1.7$, $+3.6$ and $+8.8$~pp for $|K|=1$ to $5$.
+This network mean includes the outsiders, who gain nothing; for the members alone, $\eta(K)$ rises by $+1.5$, $+2.0$, $+2.9$, $+4.6$ and $+8.8$~pp.
+With all providers cooperating, the gain is $8.8$~pp (95\% confidence interval $5.3$ to $12.3$~pp) and is positive in all 10 scenarios, between $+2.7$ and $+19.4$~pp.
+Individual protection, which needs no cooperation, gains only $+1.3$~pp (95\% confidence interval $0.03$ to $2.66$~pp), and its gain is positive in 7 of 10 scenarios, zero in 2 and negative in 1.
+
+Figure~\ref{fig:gain}(b) relates the gain to the number of protected links, which we count as the largest number of links protected at the same time during a run.
+The gain is associated with that number: the correlation is $0.81$ over all non-empty subsets and scenarios (95\% interval $0.66$ to $0.91$ from a bootstrap over scenarios), and between $0.57$ and $0.78$ within each group size.
+The number of protected links grows quickly with the group: on average $0.4$, $1.1$, $2.1$, $4.1$ and $8.5$ for $|K|=1$ to $5$, against $2.2$ for individual protection, which can only use links with $\sigma(e)=1$.
+Exit links in particular are almost never protectable by small groups: of those on the members' main paths, 100\%, 100\%, 97\% and 77\% are also used by an outsider for $|K|=1$ to $4$.
+With all providers cooperating, 2.7 of the 8.5 protected links are exit links on average, and the number of other (non-exit) protected links also rises, from 3.5 at $|K|=4$ to 5.8 at $|K|=5$.
+On the exit links, however, migration holds 90--93\% of the occupied slots in the two scenarios we inspected with $K=\mathcal{I}$, so a reservation there has little background traffic to restrict.
+We did not split the gain by link position, so how much of the rise at $|K|=5$ comes from the exit links remains open.
+
+The direct comparison with acting alone is individual protection, in which every provider protects the links it uses alone.
+With all providers cooperating, cooperative protection exceeds it in all 10 scenarios, by $7.5\pm3.8$~pp on average (95\% confidence interval $4.7$ to $10.2$~pp).
+Over all non-empty subsets and scenarios, the advantage of cooperation over individual protection correlates with the difference in protected links ($0.76$; 95\% bootstrap interval $0.58$ to $0.90$).
+These correlations also reflect differences between scenarios, and a bootstrap over only 10 scenarios may understate their uncertainty.
+
+With smaller groups, the comparison differs for members and for outsiders.
+For members, the protected links are a superset of those they could protect alone.
+On average, their migrated fraction exceeds the one under individual protection at every group size ($+0.2$, $+0.7$, $+1.6$, $+3.3$ and $+7.5$~pp for $|K|=1$ to $5$).
+Individual combinations can reverse this ordering. The members' mean migrated fraction is lower in 20\% of the 310 combinations of scenario and non-empty subset, by at most $3.4$~pp, with shares between 0\% and 55\% across scenarios; we did not isolate the cause.
+Outsiders apply no protection, and their migrated fraction is $1.4$ to $1.6$~pp lower than under individual protection for $|K|=1$ to $4$.
+Over the whole network, weighted by the number of providers in each group, these two effects give $-1.1$, $-0.6$, $+0.3$ and $+2.3$~pp for $|K|=1$ to $4$.
+The outsiders' lower migrated fraction outweighs the members' gain for $|K|\le 2$; from $|K|=3$ the network gains on average, and the crossover lies between one and five providers depending on the scenario.
+
+\subsection{Should a provider join?}
+
+The comparison above sets a group against a network in which every provider protects individually.
+A provider deciding whether to join compares instead its own results in a group $K\cup\{i\}$ with its results when the group $K$ forms without it.
+Table~\ref{tab:join} gives this comparison for every provider, subset and scenario.
+
+\begin{table}[!tb]
+\centering
+\small
+\caption{Effect of joining for the joining provider: its migrated fraction $\eta_i$ and background blocking $B_{\mathrm{n},i}$ in $K\cup\{i\}$ minus the same quantities in $K$, by the size of the resulting group, over all providers, subsets and the 10 base scenarios (a group of size 1 is compared with the reference).}
+\label{tab:join}
+\begin{tabular}{@{}lccccc@{}}
+\toprule
+Group size after joining & 1 & 2 & 3 & 4 & 5 \\
+\midrule
+Mean $\Delta\eta_i$ (pp) & $+1.5$ & $+2.1$ & $+3.0$ & $+4.8$ & $+9.1$ \\
+Mean $\Delta B_{\mathrm{n},i}$ (pp) & $+0.5$ & $+0.7$ & $+1.1$ & $+1.8$ & $+3.4$ \\
+Cases in which $\eta_i$ rises & 18.0\% & 23.5\% & 33.7\% & 55.0\% & 82.0\% \\
+Cases in which $\eta_i$ falls & 0.0\% & 3.5\% & 6.3\% & 10.5\% & 2.0\% \\
+Worst $\Delta\eta_i$ (pp) & $0.0$ & $-1.5$ & $-2.6$ & $-3.9$ & $-1.1$ \\
+Cases & 50 & 200 & 300 & 200 & 50 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Joining raises the provider's own migrated fraction on average at every group size, and the gain grows with the group.
+Over the 800 cases, which share scenarios and are not independent, joining raises the provider's migrated fraction in 38.5\%, leaves it unchanged in 55.5\% and lowers it in 6.0\%, by at most $3.9$~pp; for small groups, joining usually changes nothing. Of the 444 unchanged cases, 128 are cases in which the provider completes its migration both with and without joining.
+The cost is higher blocking of the provider's own background traffic, about 1~pp per 3~pp of migration.
+Outsiders do not gain from the members' restraint on average (Section~\ref{sec:cost}), so staying outside to benefit from it is not profitable.
+
+\subsection{Comparing reservation rules}
+\label{sec:rules}
+
+The group determines which links can be protected; the next question is how much to reserve on them.
+Both rules protect the same links, the exclusive links of the members' main paths (8.5 on average with all providers cooperating), so they differ only in how much they reserve and when.
+Figure~\ref{fig:tradeoff} places each rule by its gain in migrated fraction and its cost in background blocking, with all providers cooperating.
+
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/tradeoff.pdf}
+\caption{Gain in migrated fraction against the increase in background blocking, with all providers cooperating: paired differences with the reference (disaster-aware First-Fit without reservation, at the origin), mean and standard deviation over the 10 base scenarios. The fixed reservation is shown for $\rho=25$, $55$ and $85\%$ of the slots of each protected link; individual protection is shown for comparison.}
+\label{fig:tradeoff}
+\end{figure}
+The fixed reservation traces a concave trade-off: the marginal migration per pp of background blocking falls from $3.2$ to $2.5$ and $1.3$ from the reference to $\rho=25\%$, $55\%$ and $85\%$.
+The demand-driven reservation gains $8.8$~pp for $3.3$~pp of background blocking, a ratio of $2.6$; its background cost lies between those of $\rho=55\%$ and $85\%$, and on average it migrates slightly more than $\rho=85\%$ at a lower cost.
+In each scenario, the fixed curve is interpolated linearly between the reference and the three values of $\rho$ and, in the 2 scenarios where the demand-driven rule costs more background blocking than $\rho=85\%$, its last segment is extended.
+At the same background blocking, the demand-driven reservation migrates $1.1\pm1.0$~pp more than the fixed one (95\% confidence interval $0.4$ to $1.8$~pp), and it lies above the fixed curve in 8 of the 10 scenarios.
+Since the curve is concave in all 10 scenarios, it probably lies above the interpolation between measured points, so in the 8 scenarios that need no extension the gap is likely an overestimate; in the 2 extended ones it is likely an underestimate.
+
+Sizing the reservation to the pending migration therefore helps at most a little; at equal background cost, the gain is set mainly by which links are protected.
+The demand-driven reservation is large on average, between the $\rho=55\%$ and $85\%$ levels: the candidate paths of background requests that crossed a protected link saw 142 reserved slots on average, 71\% of $F$.
+Unlike the fixed one, it shrinks as members progress and disappears once they finish.
+Network-wide spectrum usage does not fall under either rule ($+0.6$~pp for the demand-driven rule and $+0.1$ to $+0.9$~pp for the fixed one).
+The largest fixed reservation gives almost the same result as the demand-driven one: with $\rho=85\%$, it gains $8.6$~pp for $4.2$~pp of background blocking, and 14 of the 50 providers complete their migration, against 13 with the demand-driven reservation and 8 with the reference.
+
+\subsection{Cost of the protection}
+\label{sec:cost}
+
+With all providers cooperating, protection lowers migration blocking and raises background blocking, and the overall blocking $B$ rises by $1.0$~pp.
+Figure~\ref{fig:costs} shows who bears this cost.
+
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=\textwidth]{figures/costs_vs_k.pdf}
+\caption{Cost of the protection as a function of the number of members, as changes relative to the reference (disaster-aware First-Fit without reservation). (a) Background blocking of the members, under cooperative and individual protection. (b) Migrated fraction and background blocking of the outsiders under cooperative protection. Bands show the standard deviation over the 10 base scenarios.}
+\label{fig:costs}
+\end{figure}
+The background blocking of the members grows with the group ($+0.5$, $+0.7$, $+1.1$, $+1.8$ and $+3.3$~pp for $|K|=1$ to $5$), which is consistent with the reservation restricting only their own traffic; under individual protection, it rises by $0.5$~pp on average for every provider.
+Compared with the reference, the background blocking of the outsiders changes by at most $0.1$~pp on average over subsets, and by between $-0.8$ and $+1.1$~pp for single subsets.
+Their migrated fraction falls by $0.04$ to $0.29$~pp on average over the subsets of each size ($|K|=1$ to $4$), by up to $2.7$~pp averaged over the subsets of one scenario, and by up to $6.4$~pp for a single subset; it rises in 27\% of the combinations of scenario and subset, by up to $3.5$~pp.
+We attribute this loss to the additional migration of the members, which occupies spectrum on shared links that the protection does not touch, although we did not isolate this effect.
+
+\subsection{Effect of the background load}
+\label{sec:load}
+
+Because the network is heavily loaded, we ask whether the results depend on the background part of that load.
+Table~\ref{tab:load} compares the main results at 78, 117 and 156~Erlangs of background load.
+With less background traffic, the reference migrates more and the cooperative gain is smaller.
+With all providers cooperating, the gain of the cooperative demand-driven reservation over the reference falls from $8.8$~pp at 156~Erlangs to $6.5$~pp at 117 and $3.9$~pp at 78, and its gain over individual protection from $7.5$ to $5.6$ and $3.5$~pp.
+Its cost in background blocking stays at about $3$~pp, so the migration gained per pp of background blocking falls from $2.6$ to $2.1$ and $1.3$.
+The smaller gain does not follow from the smaller headroom alone: as a share of what the reference leaves unmigrated, it falls from 27\% to 23\% and 18\%.
+We did not separate the possible causes, such as the reservation having less background traffic to displace, or a larger share of the migration blocking coming from competition among migrations.
+
+\begin{table}[!htb]
+\centering
+\small
+\caption{Results with all providers in $K$ ($K=\mathcal{I}$) at the three background loads, over the 10 base scenarios. Reference rows: mean. Other rows: mean paired difference in percentage points $\pm$ the half-width of the 95\% paired $t$ confidence interval (not the standard deviation, unlike Table~\ref{tab:main}). $\Delta$: difference with the reference. Cooperative and individual: the demand-driven reservation with cooperative and with individual protection (Table~\ref{tab:variants}). Gap: migrated fraction above the fixed-reservation curve at the same background blocking, interpolated piecewise-linearly and extended beyond $\rho=85\%$ where needed (Section~\ref{sec:rules}).}
+\label{tab:load}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & \multicolumn{3}{c}{Background load (Erlangs)} \\
+\cmidrule(l){2-4}
+ & 78 & 117 & 156 \\
+\midrule
+Reference $\eta$ & $0.786$ & $0.723$ & $0.672$ \\
+Reference $B_\mathrm{n}$ & $0.278$ & $0.330$ & $0.368$ \\
+\midrule
+Cooperative $\Delta\eta$ & $+3.9\pm1.8$ & $+6.5\pm2.7$ & $+8.8\pm3.5$ \\
+Individual $\Delta\eta$ & $+0.38\pm0.53$ & $+0.93\pm0.97$ & $+1.34\pm1.31$ \\
+Cooperative minus individual, $\eta$ & $+3.5\pm1.4$ & $+5.6\pm2.1$ & $+7.5\pm2.7$ \\
+Cooperative $\Delta B_\mathrm{n}$ & $+3.0\pm1.8$ & $+3.1\pm1.7$ & $+3.3\pm1.7$ \\
+Gap to the fixed curve & $+0.8\pm0.3$ & $+1.0\pm0.6$ & $+1.1\pm0.7$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{figure}[!tb]
+\centering
+\includegraphics[width=0.62\textwidth]{figures/load.pdf}
+\caption{Gain in the migrated fraction of the whole network, $\eta(\mathcal{I})$, over the reference (disaster-aware First-Fit without reservation) at each background load, as a function of the number of members and averaged over all subsets of each size, for cooperative (solid) and individual (dashed) protection; colors give the background load; mean over the 10 base scenarios.}
+\label{fig:load}
+\end{figure}
+
+The main results hold at all three loads.
+With all providers cooperating, the cooperative reservation migrates more than both the reference and individual protection in all 10 scenarios, and it lies slightly above the fixed-reservation curve in 10, 8 and 8 of the 10 scenarios at 78, 117 and 156~Erlangs.
+The mean fixed curve is concave at every load, as are the curves of 5, 8 and 10 of the 10 scenarios.
+The cooperative gain remains concentrated near full participation (Figure~\ref{fig:load}), and over the whole network it exceeds individual protection from $|K|=3$ on, as at full load.
+Joining a group still raises a provider's own migrated fraction on average at every group size, but at a higher price. At 78~Erlangs, the mean gain of $+0.3$ to $+4.0$~pp for $|K|=1$ to $5$ costs $+0.3$ to $+3.0$~pp of the provider's own background blocking, close to 1~pp of background blocking per pp of migration, against about 1~pp per 3~pp at full load.
+Individual protection gains little at every load; its confidence interval includes zero at the two lower loads and barely excludes it at full load.
+We did not repeat the analysis of the outsiders at the lower loads.
+
+Halving the background does not make the network lightly loaded.
+At 78~Erlangs, migration makes up about half of the requests in the warning windows, and in the reference the background blocking still lies between 0.22 and 0.32 across scenarios, the overall blocking between 0.37 and 0.48 and the migration blocking between 0.50 and 0.65.
+All three loads therefore lie in a heavily loaded regime, and the results do not extend to a network in which migration meets little competition.
+
+\subsection{Shared warning}
+\label{sec:warning}
+
+The simplest information a provider can share is the warning itself.
+Sharing it relaxes the independent discovery of Section~\ref{sec:problem}: with a warning, every provider learns of the threat at the first discovery time.
+If the first provider to discover the threat warns the others, every provider reacts at $\min_i\tau_i$, which brings the discovery of the others forward by 45~s on average (up to 125~s) and lengthens the mean warning window from 298 to 334~s.
+Table~\ref{tab:warning} compares the warning, the cooperative reservation with all providers in $K$, and their combination with the same reference.
+
+\begin{table}[!htb]
+\centering
+\small
+\caption{Shared warning: gain in migrated fraction over the reference (disaster-aware First-Fit without reservation, each provider reacting at its own discovery time), in percentage points $\pm$ the half-width of the 95\% paired $t$ confidence interval over the 10 base scenarios. With a shared warning, every provider reacts at the first discovery time. Cooperation: demand-driven reservation with $K=\mathcal{I}$.}
+\label{tab:warning}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{@{}lccc@{}}
+\toprule
+ & \multicolumn{3}{c}{Background load (Erlangs)} \\
+\cmidrule(l){2-4}
+ & 78 & 117 & 156 \\
+\midrule
+Shared warning, no reservation & $+3.3\pm1.1$ & $+4.4\pm1.6$ & $+4.6\pm1.5$ \\
+Shared warning, individual protection & $+3.4\pm1.1$ & $+4.7\pm1.8$ & $+5.4\pm1.9$ \\
+Cooperation, own discovery times & $+3.9\pm1.8$ & $+6.5\pm2.7$ & $+8.8\pm3.5$ \\
+Cooperation and shared warning & $+6.8\pm2.3$ & $+10.1\pm3.2$ & $+12.9\pm3.9$ \\
+\end{tabular}
+\end{table}
+
+The warning alone raises the migrated fraction by $4.6$~pp at full load, in all 10 scenarios. Its background cost is small: over the common window $[\min_i\tau_i,t_d)$, background blocking rises by $1.0$~pp, in all 10 scenarios, because the warned providers start migrating earlier and switch to disaster-aware routing earlier.
+Combined with the warning, the cooperative reservation adds $12.9-4.6=8.3$~pp, almost as much as without it ($8.8$~pp), for $2.9$~pp of background blocking, so the two effects nearly add up: together they raise the migrated fraction by $12.9$~pp, for $3.9$~pp of background blocking over the common window, and 38\% of the providers complete their migration, against 24\% with the warning alone and 16\% in the reference.
+The same holds at the lower loads, where both effects are smaller.
+Individual protection still adds little to the warning: $5.4$ against $4.6$~pp at full load, a difference of $+0.8$~pp (95\% confidence interval $-0.3$ to $1.9$~pp, positive in 6 of 10 scenarios).
+
+The gain of the warning is not shared by every provider.
+The provider that discovers the threat first gains no time, and it loses the period in which it migrated before the others started; since all migrations leave node 9 through the same exit links, it now competes with them from the start.
+At full load and without reservation, its migrated fraction falls in 9 of the 10 scenarios, by $3.8$~pp on average and up to $7.4$~pp, while the other providers gain $6.7$~pp on average (worse in 3 of 40 cases), and their gain grows with how much earlier they are warned (correlation $0.78$).
+With the cooperative reservation, the loss of the first provider is halved at full load ($-1.9$~pp; it still loses in 6 of the 10 scenarios) and the others gain $5.6$~pp.
+At the lower loads the first provider still loses 3 to 5~pp, and the reservation reduces this loss less ($-3.3$ instead of $-3.7$~pp at 117~Erlangs, $-3.6$ instead of $-4.8$~pp at 78~Erlangs).
+The cost of the warning to the provider that gives it therefore falls on its own migration.
+Compared with no cooperation at all, the provider that gives the warning still gains $11.5$~pp on average under the cooperative reservation with a shared warning, but it is worse off in 4 of the 10 scenarios; the other providers gain $13.2$~pp, and none of them is worse off.
+This margin shrinks with the load: at 78~Erlangs the provider that warns gains only $1.2$~pp over no cooperation, and is still worse off in 4 of the 10 scenarios.
 
 %======================================================================
-\section{Limitations}
-\label{sec:limitations}
+\section{Discussion}
+\label{sec:discussion}
 %======================================================================
 
-\begin{itemize}[leftmargin=1.2em]
-  \item The tenant count $\sigma(e)$ is assumed to be disclosed by the infrastructure owner; results with $\sigma(e)$ are an upper bound for providers that would have to infer it, for example from spectrum occupancy.
-  \item The disaster affects a single node; with a regional disaster, more links leaving the damaged area would be shared and fewer would be provably exclusive.
-  \item Destinations are the farthest nodes of each overlay, which forces long paths with the least efficient modulation; closer destinations would need fewer slots but less distance from the threat.
-  \item One topology and a single traffic model are used. \todo{number of base scenarios.}
-\end{itemize}
+The answer to our question is yes, with a strong qualification: information exchange lets providers migrate more, but the benefit is concentrated near full participation.
+A link can be protected only when every provider that uses it belongs to the group, and the number of such links roughly doubles with each additional member, so about half of them appear only when the last provider joins (from 4.1 to 8.5 on average between four and five members).
+Disaster-aware routing, which each provider can adopt alone, gains $+7.7$~pp over First-Fit at $3.2$~pp of background blocking; full cooperation adds $+8.8$~pp on top of it at about the same cost ($3.3$~pp), but only when nearly all providers join.
+
+For a single provider, joining raises its own migrated fraction on average at every group size and lowers it in only 6\% of the cases (Table~\ref{tab:join}); the background blocking it pays per pp of migration rises as the background load falls (Section~\ref{sec:load}).
+Since the gain of joining is largest when the group is nearly complete, the mechanism rewards agreements that include most providers before the warning.
+On average, small groups do not leave the network below the reference. With one or two members, however, it migrates less than if every provider protected individually, because outsiders lose the individual protection they would otherwise apply.
+
+Data that is not migrated before the failure is lost, whereas a blocked background request is lost only for its holding time, so an operator may accept some background blocking for more migration.
+On the same links, the demand-driven reservation migrates only slightly more than a fixed one at equal background blocking (1.1~pp on average; Section~\ref{sec:rules}), so the choice of links matters more than the sizing rule.
+A large fixed reservation ($\rho=85\%$) gives almost the same result at a higher background cost; the demand-driven rule needs no fraction chosen in advance, while the fixed one needs no exchange of pending volumes.
+
+The members bear most of the cost: the outsiders lose at most $0.3$~pp of migrated fraction on average, but up to $6.4$~pp in single subsets (Section~\ref{sec:cost}).
+The trade-off also depends on the background load: among the loads studied, the same cost of about $3$~pp of background blocking buys $8.8$~pp of migration at full load but $3.9$~pp with half the background traffic.
+
+The mechanism also has a ceiling.
+Even with all providers cooperating, 74\% of the providers do not finish, against 84\% in the reference.
+In the two scenarios we inspected, migration holds most of the occupied spectrum on the exit links. We therefore conjecture that part of the shortfall comes from competition among migrations there, which a reservation cannot relieve because it restricts only background traffic. The large volume relative to the window is likely another cause.
+Raising the migrated fraction further would need other levers, such as coordinating the members' migrations or reducing the volumes to migrate.
+
+One such lever needs no reservation: a shared warning, the simplest form of information-only cooperation, adds $4.6$~pp for about 1~pp of background blocking, and the reservation still adds $8.3$~pp on top of it, almost as much as without the warning (Section~\ref{sec:warning}); with both, 38\% of the providers complete their migration.
+Its cost falls on the provider that gives the warning, which loses about 4~pp of its own migrated fraction at full load, or 2~pp with the reservation, so a provider that has discovered the threat has a reason not to warn the others; even with the reservation, it is worse off than with no cooperation in 4 of the 10 scenarios.
+An agreement made before the disaster makes warning worthwhile in expectation: averaged over providers, one that does not know whether it will be the first gains the network mean, $4.6$~pp ($4.1$~pp under the reservation), provided that every provider is equally likely to discover first.
+Honouring the agreement is then a matter of trust between providers that expect to face disasters together again: each is the warner in some disasters and is warned in the others, so warning pays over time as long as the others reciprocate.
+We do not model this interaction; the argument also presumes that a withheld warning can be detected, and that no provider is systematically the first to discover the threat, since one that usually is would bear the cost without the benefit and would need another form of compensation.
+The incentive is also weaker at light load, where the provider that warns gains little even under the reservation.
+
+\paragraph{Limitations.}
+The results rest on simplifying assumptions.
+The infrastructure owner discloses $\sigma(e)$ truthfully, and members report their overlays and pending volumes truthfully and apply the restriction. The counts are not anonymous: with all providers but one in the group, they reveal the remaining provider's overlay.
+The forecast is perfect and pending volumes are exchanged instantly.
+Migration is modeled as many short independent requests, without setup delays or transport-layer effects. Every provider has the same volume, and providers that finish keep offering migration until $t_d$.
+Blocking rates count requests rather than bit rate, so they likely understate the bandwidth lost by large requests.
+The evaluation uses one topology, one traffic model and one disaster node; with a regional disaster, we expect more of the links leaving the damaged area to be shared and fewer to be provably exclusive.
+Finally, the reservation covers only the members' main paths, and we computed no centralized upper bound, so the distance from the best achievable trade-off is unknown.
 
 %======================================================================
 \section{Conclusion}
 \label{sec:conclusion}
 %======================================================================
 
-\todo{after the results.}
+We asked whether providers that share an elastic optical network and exchange only information can migrate more data in the warning window than providers that act alone.
+Under the model studied, they can, but mainly when nearly all of them take part, because a link can be protected only when all of its users belong to the group.
+The gain comes from protecting the links the group can prove exclusive; at equal background blocking, sizing the reservation to the pending migration adds only about 1~pp over a fixed fraction.
+For providers, the practical lesson is to agree before the warning on a group that includes nearly every tenant of the links on their migration paths. Partial groups protect few links, and with one or two members the network migrates less than if every provider protected individually.
+Disaster-aware routing needs no agreement and should be adopted first. Full cooperation adds about as much again at a cost in the members' own background traffic, and among the loads studied the trade-off improves as the background load grows. A warning shared under an agreement made in advance adds a further gain at a small background cost, although the provider that gives it loses part of its migration.
+Even with full cooperation most providers do not complete their migration, so the reservation is one lever among several.
 
+The mechanism requires that the infrastructure owner disclose a count per link and that members exchange their overlays (and, for the demand-driven rule, their pending volumes).
+Possible extensions include inferring the tenant count instead of receiving it, reserving on the members' alternative paths and coordinating the members' migrations.
+The evaluation could also cover other topologies, regional disasters, other disaster locations, lightly loaded networks and migration volumes that providers can complete before the failure.
+
+{\small
 \bibliographystyle{plain}
 \bibliography{references}
+}
 
 \end{document}
