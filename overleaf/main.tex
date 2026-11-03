@@ -55,7 +55,7 @@ With all five cooperating, the migrated fraction rises on average by 8.8 percent
 On the same links and at the same background blocking, sizing the reservation to the pending migration adds on average only 1.1 points over a fixed fraction, so which links are protected matters more than how the reservation is sized.
 Joining a group raises a provider's own migrated fraction on average at every group size.
 With half the background load, the gain of full cooperation over disaster-aware routing falls to 3.9 points at about the same cost.
-If the first provider to discover the threat also warns the others, the migrated fraction rises by a further 4.6 points without extra background blocking, and the two forms of cooperation add up to 12.9 points.
+If the first provider to discover the threat also warns the others, the migrated fraction rises by a further 4.6 points without extra background blocking, at a cost to the provider that gives the warning, and the two forms of cooperation add up to 12.9 points.
 Even so, only 38\% of the providers complete their migration, against 16\% without cooperation.
 \end{abstract}
 
@@ -92,7 +92,7 @@ A link can be protected only when every provider that uses it belongs to the gro
 A provider that joins nonetheless raises its own migrated fraction on average at every group size, at the cost of its own background traffic.
 How much each protected link reserves matters less: at equal background blocking, sizing the reservation to the pending migration adds only 1.1~pp on average over a fixed fraction, so the contribution lies in identifying the links a group can provably protect.
 With less background traffic the gain shrinks, while its cost in background blocking does not.
-A shared warning adds to the gain without any background cost, so the simplest exchange of information is also worth making.
+A shared warning adds to the gain without any background cost, although the provider that gives it loses part of its own migration.
 
 Section~\ref{sec:background} reviews elastic optical networks and the related work on disaster resilience, cooperation and information disclosure.
 Section~\ref{sec:problem} formulates the problem and Section~\ref{sec:mechanism} presents the mechanism.
@@ -785,6 +785,13 @@ The cooperative reservation adds almost as much with the warning as without it (
 The same holds at the lower loads, where both effects are smaller.
 Individual protection still gains little with a shared warning ($+0.8$~pp at full load, positive in 6 of 10 scenarios).
 
+The gain of the warning is not shared by every provider.
+The provider that discovers the threat first gains no time, and it loses the period in which it migrated before the others started; since all migrations leave node 9 through the same exit links, it now competes with them from the start.
+At full load and without reservation, its migrated fraction falls by $3.8$~pp on average, and in 9 of the 10 scenarios, by up to $7.4$~pp, while the other providers gain $6.7$~pp on average (worse in 3 of 40 cases), and their gain grows with how much earlier they are warned (correlation $0.78$).
+With the cooperative reservation, the loss of the first provider is halved ($-1.9$~pp, worse in 6 of 10 scenarios) and the others gain $5.6$~pp.
+The same pattern holds at the lower loads, with losses of 3 to 5~pp for the first provider.
+The providers' own background blocking changes by less than $0.4$~pp on average, so the cost of the warning falls on the migration of the provider that gives it.
+
 %======================================================================
 \section{Discussion}
 \label{sec:discussion}
@@ -809,7 +816,7 @@ The mechanism also has a ceiling.
 Even with all providers cooperating, 74\% of the providers do not finish, against 84\% in the reference.
 In the two scenarios we inspected, migration holds most of the occupied spectrum on the exit links. We therefore conjecture that part of the shortfall comes from competition among migrations there, which a reservation cannot relieve because it restricts only background traffic. The large volume relative to the window is likely another cause.
 Raising the migrated fraction further would need other levers, such as coordinating the members' migrations or reducing the volumes to migrate.
-The simplest form of information-only cooperation, a shared warning, is also the cheapest: it adds $4.6$~pp without any background blocking, and the reservation adds about as much on top of it (Section~\ref{sec:warning}). Providers should therefore share the warning first and, where nearly all of them can join, the reservation as well.
+The simplest form of information-only cooperation, a shared warning, adds $4.6$~pp without any background blocking, and the reservation adds about as much on top of it (Section~\ref{sec:warning}). Its cost falls on the provider that gives the warning, which loses about 4~pp of its own migrated fraction at full load, or 2~pp with the reservation, so a provider that has discovered the threat has a reason not to warn the others. An agreement made before the disaster removes this conflict: a provider that does not know whether it will be the first gains on average, since its expected gain equals the network mean of $4.6$~pp.
 
 \paragraph{Limitations.}
 The results rest on simplifying assumptions.
@@ -829,7 +836,7 @@ We asked whether providers that share an elastic optical network and exchange on
 Under the model studied, they can, but mainly when nearly all of them take part, because a link can be protected only when all of its users belong to the group.
 The gain comes from protecting the links the group can prove exclusive; at equal background blocking, sizing the reservation to the pending migration adds only about 1~pp over a fixed fraction.
 For providers, the practical lesson is to agree before the warning on a group that includes nearly every tenant of the links on their migration paths. Partial groups protect few links, and with one or two members the network migrates less than if every provider protected individually.
-Disaster-aware routing needs no agreement and should be adopted first, and sharing the warning costs nothing and adds a further gain; full cooperation adds about as much again at a cost in the members' own background traffic, and among the loads studied the trade-off improves as the background load grows.
+Disaster-aware routing needs no agreement and should be adopted first; a warning shared under an agreement made in advance adds a further gain at no background cost, although the provider that gives it loses part of its migration; full cooperation adds about as much again at a cost in the members' own background traffic, and among the loads studied the trade-off improves as the background load grows.
 Even with full cooperation most providers do not complete their migration, so the reservation is one lever among several.
 
 The mechanism requires that the infrastructure owner disclose a count per link and that members exchange their overlays (and, for the demand-driven rule, their pending volumes).
