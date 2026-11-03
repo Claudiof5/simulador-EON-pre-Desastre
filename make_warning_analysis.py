@@ -30,6 +30,8 @@ def resumo(runs: list[dict]) -> dict:
     fim = [np.mean([p["eta_i"] >= 1 - 1e-9 for p in r["per_isp"]]) for r in runs]
     return {"eta": np.array([x["eta_todos"] for x in s]),
             "B_n": np.array([x["B_n"] for x in s]),
+            # background blocking over the common window [tau_min, t_d)
+            "B_n_janela": np.array([x["B_n_janela"] for x in s]),
             "B_m": np.array([x["B_m"] for x in s]),
             "completam": np.array(fim)}
 
@@ -54,6 +56,12 @@ for carga in (1.0, 0.75, 0.5):
         "individual, shared warning (ind_aviso - ref_aviso)":
             aviso["demanda individual"]["eta"] - ref_a["eta"],
         "dB_n cooperation, shared warning": coop_a["B_n"] - ref_a["B_n"],
+        "individual and warning (ind_aviso - ref)":
+            aviso["demanda individual"]["eta"] - ref["eta"],
+        "dB_n common window, warning alone": ref_a["B_n_janela"] - ref["B_n_janela"],
+        "dB_n common window, warning with cooperation":
+            coop_a["B_n_janela"] - coop["B_n_janela"],
+        "dB_n common window, both vs reference": coop_a["B_n_janela"] - ref["B_n_janela"],
     }
     for nome, d in efeitos.items():
         m, sd, lo, hi, pos = ic(d)
