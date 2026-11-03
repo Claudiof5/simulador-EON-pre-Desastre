@@ -587,7 +587,7 @@ Fixed $\rho=85\%$, cooperative & $0.758\pm0.103$ & $0.410$ & $0.596$ & $0.476$ &
 
 Disaster-aware routing alone, the reference, migrates $\eta=0.672$ of the data on average, against $0.594$ for plain First-Fit over the same 10 shortest paths, without avoiding $V_d$.
 The gain is $+7.7\pm3.1$~pp (95\% confidence interval $5.5$ to $9.9$~pp) and is positive in all 10 scenarios; at 117 and 78~Erlangs it is $+6.8$ and $+4.6$~pp, also positive in all 10 scenarios.
-The background blocking of the reference is 3.2~pp higher than that of First-Fit, and its overall blocking $B$ is 0.8~pp higher.
+The background blocking of the reference is 3.2~pp higher than that of First-Fit, and its overall blocking $B$ is 0.7~pp higher.
 Because each provider can adopt it alone, disaster-aware routing is the reference; the rest of this section asks what protection and cooperation add to it.
 
 \subsection{The gain from protection grows with the group}
@@ -616,7 +616,7 @@ We did not split the gain by link position, so how much of the rise at $|K|=5$ c
 
 The direct comparison with acting alone is individual protection, in which every provider protects the links it uses alone.
 With all providers cooperating, cooperative protection exceeds it in all 10 scenarios, by $7.5\pm3.8$~pp on average (95\% confidence interval $4.7$ to $10.2$~pp).
-The advantage of cooperation over individual protection correlates with the difference in protected links ($0.76$; 95\% bootstrap interval $0.58$ to $0.90$).
+Over all non-empty subsets and scenarios, the advantage of cooperation over individual protection correlates with the difference in protected links ($0.76$; 95\% bootstrap interval $0.58$ to $0.90$).
 These correlations also reflect differences between scenarios, and a bootstrap over only 10 scenarios may understate their uncertainty.
 
 With smaller groups, the comparison differs for members and for outsiders.
@@ -644,7 +644,7 @@ Group size after joining & 1 & 2 & 3 & 4 & 5 \\
 \midrule
 Mean $\Delta\eta_i$ (pp) & $+1.5$ & $+2.1$ & $+3.0$ & $+4.8$ & $+9.1$ \\
 Mean $\Delta B_{\mathrm{n},i}$ (pp) & $+0.5$ & $+0.7$ & $+1.1$ & $+1.8$ & $+3.4$ \\
-Cases in which $\eta_i$ rises & 16.0\% & 23.5\% & 33.7\% & 55.0\% & 82.0\% \\
+Cases in which $\eta_i$ rises & 18.0\% & 23.5\% & 33.7\% & 55.0\% & 82.0\% \\
 Cases in which $\eta_i$ falls & 0.0\% & 3.5\% & 6.3\% & 10.5\% & 2.0\% \\
 Worst $\Delta\eta_i$ (pp) & $0.0$ & $-1.5$ & $-2.6$ & $-3.9$ & $-1.1$ \\
 Cases & 50 & 200 & 300 & 200 & 50 \\
@@ -653,7 +653,7 @@ Cases & 50 & 200 & 300 & 200 & 50 \\
 \end{table}
 
 Joining raises the provider's own migrated fraction on average at every group size, and the gain grows with the group.
-Over the 800 cases, which share scenarios and are not independent, joining raises the provider's migrated fraction in 38\%, leaves it unchanged in 56\% and lowers it in 6\%, by at most $3.9$~pp; for small groups, joining usually changes nothing. Of the 445 unchanged cases, 128 are cases in which the provider completes its migration both with and without joining.
+Over the 800 cases, which share scenarios and are not independent, joining raises the provider's migrated fraction in 38.5\%, leaves it unchanged in 55.5\% and lowers it in 6.0\%, by at most $3.9$~pp; for small groups, joining usually changes nothing. Of the 444 unchanged cases, 128 are cases in which the provider completes its migration both with and without joining.
 The cost is higher blocking of the provider's own background traffic, about 1~pp per 3~pp of migration.
 Outsiders do not gain from the members' restraint on average (Section~\ref{sec:cost}), so staying outside to benefit from it is not profitable.
 
@@ -805,7 +805,7 @@ Disaster-aware routing, which each provider can adopt alone, gains $+7.7$~pp ove
 
 For a single provider, joining raises its own migrated fraction on average at every group size and lowers it in only 6\% of the cases (Table~\ref{tab:join}); the background blocking it pays per pp of migration rises as the background load falls (Section~\ref{sec:load}).
 Since the gain of joining is largest when the group is nearly complete, the mechanism rewards agreements that include most providers before the warning.
-Small groups do not leave the network below the reference. With one or two members, however, it migrates less than if every provider protected individually, because outsiders lose the individual protection they would otherwise apply.
+On average, small groups do not leave the network below the reference. With one or two members, however, it migrates less than if every provider protected individually, because outsiders lose the individual protection they would otherwise apply.
 
 Data that is not migrated before the failure is lost, whereas a blocked background request is lost only for its holding time, so an operator may accept some background blocking for more migration.
 On the same links, the demand-driven reservation migrates only slightly more than a fixed one at equal background blocking (1.1~pp on average; Section~\ref{sec:rules}), so the choice of links matters more than the sizing rule.
