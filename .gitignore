@@ -2,6 +2,9 @@
 simulador/simulador/_out/
 *.csv
 *.pkl
+# Base scenarios of the article (traffic is pre-generated, generator unseeded)
+!output/cenario_disaster_aware*.pkl
+!output/cenario_nao_disaster_aware*.pkl
 gittoken
 .vscode/*
 .python-version
