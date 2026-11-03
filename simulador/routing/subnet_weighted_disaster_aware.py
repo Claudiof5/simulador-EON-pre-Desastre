@@ -127,18 +127,19 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
             informacoes_dos_datapaths, pelo_menos_uma_janela_habil = protecao.aplicar(
                 requisicao, informacoes_dos_datapaths, env.now
             )
-            if requisicao.requisicao_de_migracao:
-                protecao.registra_migracao(
-                    requisicao.src_isp,
-                    not pelo_menos_uma_janela_habil,
-                    requisicao.bandwidth,
-                )
+        registrar = protecao is not None and requisicao.requisicao_de_migracao
         if pelo_menos_uma_janela_habil:
             FirstFitWeightedSubnetDisasterAware.__aloca_requisicao(
                 requisicao, topology, informacoes_dos_datapaths, env
             )
+            if registrar:  # after allocation, so the chosen path is known
+                protecao.registra_migracao(
+                    requisicao.src_isp, False, requisicao.bandwidth, requisicao.caminho
+                )
             return True
 
+        if registrar:
+            protecao.registra_migracao(requisicao.src_isp, True, requisicao.bandwidth)
         requisicao.bloqueia_requisicao(env.now)
         return False
 
@@ -182,17 +183,20 @@ class FirstFitWeightedSubnetDisasterAware(RoutingBase):
             informacoes_datapath: Dictionary with specific path information
             env: Simulation environment
         """
-        index_inicio = next(
-            (
-                index_inicio
-                for index_inicio, index_final in informacoes_datapath[
-                    "lista_de_inicios_e_fins"
-                ]
-                if index_final - index_inicio + 1
-                >= informacoes_datapath["numero_slots_necessarios"]
-            ),
-            0,
-        )
+        n_slots = informacoes_datapath["numero_slots_necessarios"]
+        janelas = [
+            (ini, fim)
+            for ini, fim in informacoes_datapath["lista_de_inicios_e_fins"]
+            if fim - ini + 1 >= n_slots
+        ]
+        if requisicao.requisicao_de_migracao and getattr(
+            topology, "migracao_last_fit", False
+        ):
+            # Last-Fit for migration: highest free block, at the top of the
+            # highest window that fits (background keeps First-Fit)
+            index_inicio = janelas[-1][1] - n_slots + 1 if janelas else 0
+        else:
+            index_inicio = janelas[0][0] if janelas else 0
 
         index_final = int(
             index_inicio + informacoes_datapath["numero_slots_necessarios"] - 1

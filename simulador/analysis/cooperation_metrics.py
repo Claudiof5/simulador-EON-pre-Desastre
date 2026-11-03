@@ -1,6 +1,11 @@
 """Cooperation metrics defined in ``overleaf/problema.tex`` (Objetivo e métricas).
 
-- ``B_n`` / ``B_m``: blocking rate of background / migration requests.
+- ``B_n`` / ``B_m``: blocking rate of background / migration requests, measured
+  over the warning window: a background request of ISP i counts only if it was
+  created in [tau_i, t_d) (``B_n_total`` keeps every simulated request). All
+  migration requests are created in that window by construction.
+- ``B``: overall blocking rate over the same requests (background in the window
+  plus migration).
 - ``A = 1 - B``: availability as used in this repo (not two-terminal availability).
 - ``eta_i = M_i(t_d) / D_i``: fraction of ISP i's datacenter migrated before the
   failure. ``M_i`` is the bandwidth of accepted migration requests created before
@@ -96,9 +101,13 @@ def metricas_cooperacao(
 
     migracao = _como_bool(df["requisicao_de_migracao"])
     tempo = df["tempo_criacao"].astype(float)
-    normais = df[~migracao]
+    normais_todas = df[~migracao]
     migracoes = df[migracao]
-    normais_janela = normais[(tempo[~migracao] >= tau_min) & (tempo[~migracao] < t_d)]
+    tempo_n = tempo[~migracao]
+    normais_janela = normais_todas[(tempo_n >= tau_min) & (tempo_n < t_d)]
+    # Each ISP's background counts only in its own warning window [tau_i, t_d)
+    tau_src = normais_todas["src_isp_index"].astype(int).map(taus).astype(float)
+    normais = normais_todas[(tempo_n >= tau_src) & (tempo_n < t_d)]
 
     etas = eta_por_isp(df, scenario)
     eta_k = _media([etas[i] for i in k_set if i in etas])
@@ -107,15 +116,21 @@ def metricas_cooperacao(
 
     b_n = _taxa_bloqueio(normais)
     b_m = _taxa_bloqueio(migracoes)
+    todas = pd.concat([normais, migracoes])
+    b_geral = _taxa_bloqueio(todas)
     src_normais = normais["src_isp_index"].astype(int)
+    src_todas = todas["src_isp_index"].astype(int)
     resumo = {
         "K": rotulo_cooperantes(k_set),
         "k": len(k_set),
+        "B": b_geral,
+        "A": 1 - b_geral,
         "B_n": b_n,
         "B_m": b_m,
         "A_n": 1 - b_n,
         "A_m": 1 - b_m,
         "B_n_janela": _taxa_bloqueio(normais_janela),
+        "B_n_total": _taxa_bloqueio(normais_todas),
         "eta_todos": _media(list(etas.values())),
         "eta_K": eta_k,
         "eta_isolados": eta_iso,
@@ -123,7 +138,10 @@ def metricas_cooperacao(
         # Background blocking of K members vs isolated ISPs (cost of protection)
         "B_n_K": _taxa_bloqueio(normais[src_normais.isin(k_set)]),
         "B_n_isolados": _taxa_bloqueio(normais[src_normais.isin(isolados)]),
+        "B_K": _taxa_bloqueio(todas[src_todas.isin(k_set)]),
+        "B_isolados": _taxa_bloqueio(todas[src_todas.isin(isolados)]),
         "n_normais": len(normais),
+        "n_normais_total": len(normais_todas),
         "n_migracao": len(migracoes),
         "t_d": t_d,
     }
@@ -141,6 +159,7 @@ def metricas_cooperacao(
                 "tau_i": taus.get(isp_id, math.nan),
                 "eta_i": etas.get(isp_id, math.nan),
                 "B_m_i": _taxa_bloqueio(mig_i),
+                "B_i": _taxa_bloqueio(todas[src_todas == isp_id]),
                 "B_n_i": _taxa_bloqueio(normais[src_normais == isp_id]),
                 "n_normais_i": int((src_normais == isp_id).sum()),
                 "n_migracao_i": len(mig_i),
@@ -158,7 +177,8 @@ def expandir_para_todos_k(
     protection, First-Fit) once cooperative weights are off: the simulation is
     deterministic and K changes nothing. They run once (K = empty set) and this
     rebuilds, for every subset K, the fields that only depend on the labels:
-    K, k, em_K, eta_K, eta_isolados, Gamma, B_n_K, B_n_isolados.
+    K, k, em_K, eta_K, eta_isolados, Gamma, B_n_K, B_n_isolados, B_K,
+    B_isolados.
 
     Args:
         resultado: dict returned by run_cooperation_experiment (one run)
@@ -173,17 +193,20 @@ def expandir_para_todos_k(
     base = resultado["summary"]
     linhas_isp = {row["isp_id"]: row for row in resultado["per_isp"]}
 
-    def _bn(grupo: set[int]) -> float:
-        n = sum(linhas_isp[i].get("n_normais_i", 0) for i in grupo)
-        if not grupo or n == 0:
+    def _pooled(grupo: set[int], taxa: str, contagens: tuple[str, ...]) -> float:
+        def n_de(i: int) -> int:
+            return sum(linhas_isp[i].get(c, 0) for c in contagens)
+
+        n = sum(n_de(i) for i in grupo)
+        if not grupo or n == 0 or any(taxa not in linhas_isp[i] for i in grupo):
             return math.nan
-        return (
-            sum(
-                linhas_isp[i]["B_n_i"] * linhas_isp[i].get("n_normais_i", 0)
-                for i in grupo
-            )
-            / n
-        )
+        return sum(linhas_isp[i][taxa] * n_de(i) for i in grupo) / n
+
+    def _bn(grupo: set[int]) -> float:
+        return _pooled(grupo, "B_n_i", ("n_normais_i",))
+
+    def _b(grupo: set[int]) -> float:
+        return _pooled(grupo, "B_i", ("n_normais_i", "n_migracao_i"))
 
     resumos, por_isp = [], []
     for k in range(len(ids) + 1):
@@ -202,6 +225,8 @@ def expandir_para_todos_k(
                     "Gamma": eta_k - eta_fora if k_set and fora else math.nan,
                     "B_n_K": _bn(k_set),
                     "B_n_isolados": _bn(fora),
+                    "B_K": _b(k_set),
+                    "B_isolados": _b(fora),
                 }
             )
             por_isp.extend(
@@ -209,3 +234,113 @@ def expandir_para_todos_k(
                 for i in ids
             )
     return resumos, por_isp
+
+
+def uso_da_rede(
+    requisicoes: Iterable[Any],
+    topology: Any,
+    inicio: float,
+    fim: float,
+    conexoes_iniciais: Iterable[tuple[list[int], tuple[int, int], float]] = (),
+    links_protegidos: Iterable[Iterable[int]] = (),
+) -> dict[str, Any]:
+    """Spectrum usage in the window [inicio, fim), integrated exactly over time.
+
+    Each accepted connection occupies its slots on every link of its path from
+    its creation until its release; the usage is the occupied slot-time divided
+    by the available slot-time (slots per link x links x window length).
+
+    Args:
+        requisicoes: Request objects of the run (accepted ones have a path)
+        topology: networkx graph whose edges hold the ``slots`` array
+        inicio: start of the window (first discovery time)
+        fim: end of the window (failure time t_d)
+        conexoes_iniciais: (path, (first, last slot), release time) of
+            connections already active at ``inicio`` that are not among
+            ``requisicoes`` (runs resumed from the shared prefix)
+        links_protegidos: links protected at some point of the run
+
+    Returns:
+        U (whole network), U_n / U_m (share used by background / migration,
+        U = U_n + U_m), U_protegidos (mean over the protected links, NaN if
+        none) and U_links (per link, key "u-v" with u < v).
+    """
+    duracao = fim - inicio
+    links = {
+        frozenset((int(u), int(v))): len(d["slots"])
+        for u, v, d in topology.edges(data=True)
+    }
+    ocupado = {link: 0.0 for link in links}
+    ocupado_m = {link: 0.0 for link in links}
+
+    def _soma(caminho, ini_fim, t0, t1, migracao):
+        dt = min(t1, fim) - max(t0, inicio)
+        if dt <= 0:
+            return
+        n_slots = ini_fim[1] - ini_fim[0] + 1
+        for u, v in zip(caminho, caminho[1:]):
+            link = frozenset((int(u), int(v)))
+            ocupado[link] += n_slots * dt
+            if migracao:
+                ocupado_m[link] += n_slots * dt
+
+    for caminho, ini_fim, t_fim in conexoes_iniciais:
+        _soma(caminho, ini_fim, inicio, t_fim, False)
+    for r in requisicoes:
+        if r.bloqueada is not False or r.caminho is None or r.tempo_desalocacao is None:
+            continue
+        _soma(
+            r.caminho,
+            r.index_de_inicio_e_final,
+            r.tempo_criacao,
+            r.tempo_desalocacao,
+            bool(r.requisicao_de_migracao),
+        )
+
+    capacidade = sum(links.values()) * duracao
+    u_links = {link: ocupado[link] / (links[link] * duracao) for link in links}
+    protegidos = [frozenset(int(x) for x in l) for l in links_protegidos]
+    protegidos = [l for l in protegidos if l in links]
+    total = sum(ocupado.values())
+    total_m = sum(ocupado_m.values())
+    return {
+        "U": total / capacidade,
+        "U_n": (total - total_m) / capacidade,
+        "U_m": total_m / capacidade,
+        "U_protegidos": (
+            _media([u_links[l] for l in protegidos]) if protegidos else math.nan
+        ),
+        "n_links_protegidos": len(protegidos),
+        "U_links": {
+            "-".join(str(x) for x in sorted(link)): u for link, u in u_links.items()
+        },
+    }
+
+
+def caminhos_fundo(
+    requisicoes: Iterable[Any], taus: dict[int, float], t_d: float
+) -> dict[str, float]:
+    """Length of the paths given to accepted background requests.
+
+    Counts background requests created in their own ISP's warning window
+    [tau_i, t_d), like B_n. A reserve that pushes background traffic onto
+    detours shows up as longer paths (more links, worse modulation). Only
+    accepted requests have a path, so compare it together with B_n.
+
+    Returns:
+        D_n_km (mean path length in km), H_n (mean hops), n_fundo_aceitas.
+    """
+    distancias, saltos = [], []
+    for r in requisicoes:
+        if r.requisicao_de_migracao or r.bloqueada is not False or r.caminho is None:
+            continue
+        tau = taus.get(int(r.src_isp_index))
+        if tau is None or not (tau <= r.tempo_criacao < t_d):
+            continue
+        distancias.append(float(r.distacia))
+        saltos.append(len(r.caminho) - 1)
+    return {
+        "D_n_km": _media(distancias),
+        "H_n": _media(saltos),
+        "n_fundo_aceitas": len(distancias),
+    }

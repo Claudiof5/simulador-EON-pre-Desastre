@@ -79,6 +79,7 @@ def test_eta_and_gamma() -> None:
     assert math.isclose(resumo["Gamma"], 0.5)
     assert math.isclose(resumo["B_m"], 0.25)
     assert math.isclose(resumo["B_n"], 1.0)
+    assert math.isclose(resumo["B"], 0.4)  # 2 of the 5 requests blocked
     assert [row["em_K"] for row in por_isp] == [True, False]
 
     todos, _ = metricas_cooperacao(df, scenario, [0, 1])
@@ -180,9 +181,12 @@ def test_expand_k_independent_run_to_every_subset() -> None:
     resultado = {
         "summary": {"K": "K_none", "k": 0, "eta_todos": 0.6, "B_n": 0.25},
         "per_isp": [
-            {"isp_id": 0, "eta_i": 1.0, "B_n_i": 0.1, "n_normais_i": 100},
-            {"isp_id": 1, "eta_i": 0.5, "B_n_i": 0.4, "n_normais_i": 300},
-            {"isp_id": 2, "eta_i": 0.3, "B_n_i": 0.2, "n_normais_i": 100},
+            {"isp_id": 0, "eta_i": 1.0, "B_n_i": 0.1, "n_normais_i": 100,
+             "B_i": 0.2, "n_migracao_i": 100},
+            {"isp_id": 1, "eta_i": 0.5, "B_n_i": 0.4, "n_normais_i": 300,
+             "B_i": 0.5, "n_migracao_i": 100},
+            {"isp_id": 2, "eta_i": 0.3, "B_n_i": 0.2, "n_normais_i": 100,
+             "B_i": 0.2, "n_migracao_i": 0},
         ],
     }
     resumos, por_isp = expandir_para_todos_k(resultado, [0, 1, 2])
@@ -194,7 +198,80 @@ def test_expand_k_independent_run_to_every_subset() -> None:
     assert math.isclose(por_k["K_0-1"]["Gamma"], 0.45)
     # pooled by request count: (0.1 * 100 + 0.4 * 300) / 400
     assert math.isclose(por_k["K_0-1"]["B_n_K"], 0.325)
+    # overall, pooled over background + migration: (0.2 * 200 + 0.5 * 400) / 600
+    assert math.isclose(por_k["K_0-1"]["B_K"], 0.4)
     assert por_k["K_0-1"]["eta_todos"] == 0.6  # copied from the run
     assert math.isnan(por_k["K_none"]["eta_K"])
     assert math.isnan(por_k["K_0-1-2"]["Gamma"])
     assert [r["em_K"] for r in por_isp if r["K"] == "K_2"] == [False, False, True]
+
+
+def test_farthest_destination_by_hops_or_distance() -> None:
+    import networkx as nx
+
+    from simulador.generators.datacenter_generator import DatacenterGenerator
+
+    # 0-1-2 is 2 hops but short; 0-3 is 1 hop but long
+    g = nx.Graph()
+    g.add_edge(0, 1, weight=100)
+    g.add_edge(1, 2, weight=100)
+    g.add_edge(0, 3, weight=1000)
+    nos = [0, 1, 2, 3]
+    assert DatacenterGenerator.destino_mais_distante(g, 0, nos, "saltos") == 2
+    assert DatacenterGenerator.destino_mais_distante(g, 0, nos, "distancia") == 3
+    # only nodes of the ISP are candidates
+    assert DatacenterGenerator.destino_mais_distante(g, 0, [0, 1, 2], "distancia") == 2
+
+
+def test_background_blocking_counts_only_each_isp_warning_window() -> None:
+    isps = [_FakeISP(0, tau=10.0), _FakeISP(1, tau=30.0)]
+    scenario = _fake_scenario(isps, t_d=50.0)
+    df = pd.DataFrame(
+        {
+            "src_isp_index": [0, 0, 0, 1, 1],
+            "requisicao_de_migracao": [False] * 5,
+            "bloqueada": [True, False, True, True, False],
+            "bandwidth": [100] * 5,
+            # ISP 0: t=5 is before its tau, t=60 after t_d -> only t=20 counts
+            # ISP 1: t=20 is before its tau -> only t=40 counts
+            "tempo_criacao": [5.0, 20.0, 60.0, 20.0, 40.0],
+        }
+    )
+    resumo, por_isp = metricas_cooperacao(df, scenario, [0])
+    assert resumo["n_normais"] == 2 and resumo["n_normais_total"] == 5
+    assert resumo["B_n"] == 0.0  # both counted requests were accepted
+    assert math.isclose(resumo["B_n_total"], 0.6)
+    assert [row["n_normais_i"] for row in por_isp] == [1, 1]
+
+
+def test_network_usage_integrates_slot_time_in_window() -> None:
+    import math
+
+    import networkx as nx
+
+    from simulador.analysis.cooperation_metrics import uso_da_rede
+
+    class _R:
+        def __init__(self, caminho, slots, t0, t1, migracao=False, bloqueada=False):
+            self.caminho, self.index_de_inicio_e_final = caminho, slots
+            self.tempo_criacao, self.tempo_desalocacao = t0, t1
+            self.requisicao_de_migracao, self.bloqueada = migracao, bloqueada
+
+    g = nx.Graph()
+    g.add_edge(0, 1, slots=[0] * 10)
+    g.add_edge(1, 2, slots=[0] * 10)
+    reqs = [
+        _R([0, 1, 2], (0, 1), 0.0, 5.0),               # 2 slots x 2 links, 5 s in window
+        _R([0, 1], (2, 6), 8.0, 20.0, migracao=True),  # 5 slots x 1 link, 2 s in window
+        _R([1, 2], (0, 9), 1.0, 2.0, bloqueada=True),  # blocked: ignored
+    ]
+    # Connection restored from the prefix: 1 slot on 1-2 until t = 4
+    uso = uso_da_rede(reqs, g, 0.0, 10.0, conexoes_iniciais=[([1, 2], (5, 5), 4.0)],
+                      links_protegidos=[(1, 0)])
+    capacidade = 2 * 10 * 10.0
+    assert math.isclose(uso["U"], (20 + 10 + 4) / capacidade)
+    assert math.isclose(uso["U_m"], 10 / capacidade)
+    assert math.isclose(uso["U_n"] + uso["U_m"], uso["U"])
+    assert math.isclose(uso["U_links"]["0-1"], (10 + 10) / 100)
+    assert math.isclose(uso["U_protegidos"], uso["U_links"]["0-1"])
+    assert uso["n_links_protegidos"] == 1

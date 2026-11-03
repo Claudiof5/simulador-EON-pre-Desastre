@@ -148,6 +148,12 @@ class ScenarioConfig:
     # matters through migration-corridor protection.
     pesos_cooperativos: bool = True
 
+    # How the migration destination d_i is chosen among the ISP's nodes:
+    # "saltos" = farthest from the disaster node in hops (historical default),
+    # "distancia" = farthest in km (shortest-path length on the topology).
+    # Apply it to a pickled scenario with Scenario.redefinir_destinos_migracao.
+    destino_migracao: str = "saltos"
+
     # Modulation override: None keeps distance-based modulation (factor 1-4).
     # A number fixes every path's factor to it, so path length no longer
     # changes how many slots a request needs. Apply it to a pickled scenario
@@ -171,6 +177,30 @@ class ScenarioConfig:
     protecao_caminhos_corredor: int = 3
     # "reserva_demanda": multiplies the slots each owner needs to finish on time
     protecao_margem: float = 1.0
+    # "reserva_feedback": the demand-driven reserve is multiplied by a gain g
+    # updated every protecao_feedback_intervalo seconds:
+    #   g <- g * exp(kappa * (atraso - lambda * B_n_res - ociosa))
+    # atraso: how far the owner fell behind the rate needed to finish by t_d
+    # in the last interval; B_n_res: share of background requests near the
+    # owner's protected links blocked by the reserve; ociosa: unused share of
+    # the reserve, counted only while the owner is on schedule.
+    protecao_feedback_lambda: float = 1.0
+    protecao_feedback_kappa: float = 0.5
+    protecao_feedback_intervalo: float = 1.0
+    # Cap on the reserve of any link, as a fraction of its slots (None: no cap)
+    protecao_reserva_max: float | None = None
+    # "reserva_demanda": "soma" adds the needs of a link's owners, "max" keeps
+    # only the largest; divisao_uso splits each need among the corridor paths
+    # by where migration is accepted (needs protecao_caminhos_corredor > 1)
+    protecao_agregacao: str = "soma"
+    protecao_divisao_uso: bool = False
+    # Reorder each provider's migration paths so that the first n leave the
+    # disaster node through different links where its overlay allows it
+    # (None: keep the shortest-first order). See Scenario.diversificar_saidas_migracao
+    migracao_saidas_distintas: int | None = None
+    # Allocate migration requests with Last-Fit (highest free block) instead of
+    # First-Fit; background traffic always uses First-Fit
+    migracao_last_fit: bool = False
 
     # Disaster parameters
     disaster_start: float = INICIO_DESASTRE
