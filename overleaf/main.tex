@@ -791,6 +791,7 @@ At full load and without reservation, its migrated fraction falls by $3.8$~pp on
 With the cooperative reservation, the loss of the first provider is halved ($-1.9$~pp, worse in 6 of 10 scenarios) and the others gain $5.6$~pp.
 The same pattern holds at the lower loads, with losses of 3 to 5~pp for the first provider.
 The providers' own background blocking changes by less than $0.4$~pp on average, so the cost of the warning falls on the migration of the provider that gives it.
+Compared with no cooperation at all, the provider that gives the warning still gains $11.5$~pp on average under the cooperative reservation with a shared warning, but it is worse off in 4 of the 10 scenarios; the other providers gain $13.2$~pp, and none of them is worse off.
 
 %======================================================================
 \section{Discussion}
@@ -817,6 +818,8 @@ Even with all providers cooperating, 74\% of the providers do not finish, agains
 In the two scenarios we inspected, migration holds most of the occupied spectrum on the exit links. We therefore conjecture that part of the shortfall comes from competition among migrations there, which a reservation cannot relieve because it restricts only background traffic. The large volume relative to the window is likely another cause.
 Raising the migrated fraction further would need other levers, such as coordinating the members' migrations or reducing the volumes to migrate.
 The simplest form of information-only cooperation, a shared warning, adds $4.6$~pp without any background blocking, and the reservation adds about as much on top of it (Section~\ref{sec:warning}). Its cost falls on the provider that gives the warning, which loses about 4~pp of its own migrated fraction at full load, or 2~pp with the reservation, so a provider that has discovered the threat has a reason not to warn the others. An agreement made before the disaster removes this conflict: a provider that does not know whether it will be the first gains on average, since its expected gain equals the network mean of $4.6$~pp.
+Honouring the agreement is then a matter of trust between providers that expect to face disasters together again: each is the warner in some disasters and is warned in the others, so warning pays over time as long as the others reciprocate, and a provider that withholds a warning risks losing theirs in the future.
+The argument assumes that no provider is systematically the first to discover the threat; one that usually is would bear the cost without the benefit and would need another form of compensation.
 
 \paragraph{Limitations.}
 The results rest on simplifying assumptions.
