@@ -84,6 +84,15 @@ for carga in (1.0, 0.75, 0.5):
     for m in ("sem reserva", "demanda cooperativa"):
         antes = por_isp(pastas(carga)[m], CHAVE[m])
         depois = por_isp(pasta_aviso(PROTECAO[m], carga), CHAVE[m])
+        if m == "demanda cooperativa":  # whole package against no cooperation
+            ref_proprio = por_isp(pastas(carga)["sem reserva"], CHAVE["sem reserva"])
+            for grupo, sel in (("first", lambda k: avanco[k] < 1e-9),
+                               ("others", lambda k: avanco[k] >= 1e-9)):
+                d = np.array([depois[k] - ref_proprio[k] for k in antes if sel(k)]) * 100
+                linhas.append({"carga": carga,
+                               "efeito": f"per ISP {grupo} package vs reference",
+                               "media_pp": d.mean(), "piores": int((d < -1e-9).sum()),
+                               "minimo_pp": d.min(), "n": len(d)})
         for grupo, sel in (("first", lambda k: avanco[k] < 1e-9),
                            ("others", lambda k: avanco[k] >= 1e-9)):
             d = np.array([depois[k] - antes[k] for k in antes if sel(k)]) * 100
