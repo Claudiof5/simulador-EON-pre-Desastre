@@ -3,6 +3,7 @@
 # Writes output/carga/warning_summary.csv and prints the 2x2 effects per load.
 # Usage: .venv/bin/python make_warning_analysis.py
 import json
+import pickle
 from pathlib import Path
 
 import numpy as np
@@ -64,6 +65,31 @@ for carga in (1.0, 0.75, 0.5):
                            "media_pp": r["eta"].mean() * 100,
                            "completam": r["completam"].mean(),
                            "B_n": r["B_n"].mean(), "B_m": r["B_m"].mean()})
+
+# Per provider: the first to discover (the warner) against the others
+avanco = {}
+for b in BASES:
+    with open(f"output/cenario_disaster_aware{b}.pkl", "rb") as f:
+        cen = pickle.load(f)
+    t = {i.isp_id: i.datacenter.tempo_de_reacao for i in cen.lista_de_isps}
+    avanco.update({(b, i): v - min(t.values()) for i, v in t.items()})
+
+
+def por_isp(pasta: Path, chave: str) -> dict:
+    return {(r["base_index"], p["isp_id"]): p["eta_i"]
+            for r in ler(pasta, chave) for p in r["per_isp"]}
+
+
+for carga in (1.0, 0.75, 0.5):
+    for m in ("sem reserva", "demanda cooperativa"):
+        antes = por_isp(pastas(carga)[m], CHAVE[m])
+        depois = por_isp(pasta_aviso(PROTECAO[m], carga), CHAVE[m])
+        for grupo, sel in (("first", lambda k: avanco[k] < 1e-9),
+                           ("others", lambda k: avanco[k] >= 1e-9)):
+            d = np.array([depois[k] - antes[k] for k in antes if sel(k)]) * 100
+            linhas.append({"carga": carga, "efeito": f"per ISP {grupo} {m}",
+                           "media_pp": d.mean(), "piores": int((d < -1e-9).sum()),
+                           "minimo_pp": d.min(), "n": len(d)})
 
 df = pd.DataFrame(linhas)
 Path("output/carga").mkdir(parents=True, exist_ok=True)
