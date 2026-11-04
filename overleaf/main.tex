@@ -65,7 +65,7 @@ Even so, only 38\% of the providers complete their migration, against 16\% witho
 \section{Introduction}
 %======================================================================
 
-Disasters such as earthquakes, floods, wildfires and large power outages damage communication infrastructure in geographically correlated ways: many nodes and links fail together, and the datacenters attached to them become unreachable \cite{rak2021disaster}.
+Disasters such as earthquakes, floods, wildfires and large power outages damage communication infrastructure in geographically correlated ways: many nodes and links fail together, and the data held in datacenters at the affected sites may be lost \cite{rak2021disaster}.
 Much of the work on disaster resilience in optical networks addresses restoration after the failure \cite{zou2021drama,zou2022dramaplus,zou2025dramapro,sahoo2022cooperation}.
 When a disaster can be forecast, the \emph{warning window} can instead be used to evacuate critical data before the failure \cite{evacuation2015rapid,backup2017earlywarning,alertbased2020evacuation,ayoub2021evacuation}.
 To our knowledge, neither line of work models several providers with separate views that compete for the same spectrum.
@@ -115,7 +115,7 @@ Our mechanism uses a reservation of this kind; its novelty lies in where the res
 
 \subsection{Disasters and the phases of resilience}
 
-Disasters differ from isolated failures because they affect many geographically correlated components at once \cite{rak2021disaster}, so protection schemes designed for single failures, such as dedicated or shared backup path protection \cite{shen2016survivable}, may not suffice.
+Disasters differ from isolated failures because they cause concurrent failures of many geographically correlated network elements \cite{rak2021disaster}, so protection schemes designed for single failures, such as dedicated or shared backup path protection \cite{shen2016survivable}, may not suffice.
 A common abstraction models the disaster as a zone that contains the failed nodes and links \cite{zou2021drama,zou2022dramaplus}.
 Rak et al.\ \cite{rak2021disaster} distinguish proactive methods applied before a disaster, preparedness methods for the short interval between an early alert and the moment the disaster hits, and reactive post-disaster recovery.
 This work belongs to preparedness.
@@ -134,8 +134,9 @@ These algorithms act after the failure; our problem takes place before it, with 
 \subsection{Cooperation across administrative domains}
 
 Disasters affect the transport network and the datacenters that depend on it at the same time, which has motivated cooperation between datacenter providers and optical carriers.
-Sahoo et al.\ \cite{sahoo2022cooperation,sahoo2025postdisaster} restore datacenter services after a disaster through a third-party mediator, the Provider Neutral Exchange, which balances resources among datacenter providers that compete for them.
+Sahoo et al.\ \cite{sahoo2022cooperation} restore datacenter services after a disaster through a third-party mediator, the Provider Neutral Exchange, which balances resources among datacenter providers that compete for them.
 Carriers evaluate the providers' requests and return feedback without disclosing confidential information such as their topology, and the cooperation improves service restoration.
+A later version \cite{sahoo2025postdisaster} formulates this cooperation as an optimization problem in which the exchange shares only abstracted information.
 Our setting shares the idea that cooperation is limited in what it reveals, but differs in three ways: it takes place in the warning window, no entity decides or balances allocations, and each provider acts only by restricting its own traffic.
 
 \subsection{Information disclosed by infrastructure owners}
